@@ -23,13 +23,14 @@ Dựa vào data chỉ số chất lượng không khí từ 2022-2025 để xây
 └── requirements.txt      # Thư viện cần cài đặt
 
 3. Ý nghĩa các cột
-- Tổng cộng: 26 cột
+- Tổng cộng: 27 cột
   + local_time: Thời gian lấy dữ liệu (theo giờ Việt Nam)
   + date: Ngày thực hiện lấy dữ liệu
   + year / month: Năm / tháng lấy dữ liệu
   + hour: Giờ trong ngày (0h - 23h)
   + day_of_week: Thứ trong tuần (0:Thứ hai - 6:Chủ nhật)
   + is_weekend: Nếu cuối tuần thì 1 - ngày thường là 0
+  + is_rush_hour: Nếu trong khung giờ tắc (6h-9h và 17h-20h) thì 1 - giờ thường thì 0
   + season: Mùa trong năm (0: Đông, 1: Xuân, 2: Hạ, 3: Thu)
   + city: Thành phố 
   + country_code: Mã quốc gia
