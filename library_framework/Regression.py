@@ -1,32 +1,14 @@
 import pandas as pd
 import numpy as np
 import warnings
-import os
+from sqlalchemy import create_engine
 from sklearn.ensemble import RandomForestRegressor
 
 warnings.filterwarnings('ignore')
 
-# ══════════════════════════════════════════════════════
-# 1. ĐỌC DỮ LIỆU & TRAIN MODEL
-# ══════════════════════════════════════════════════════
-def find_data_file(filename):
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for root, dirs, files in os.walk(base_dir):
-        if filename in files:
-            return os.path.join(root, filename)
-    return None
-
-file_name = 'hanoi_aqi_cleaned.csv'
-file_path = find_data_file(file_name)
-
-if file_path:
-    print(f"✅ Đã tìm thấy file tại: {file_path}")
-    df = pd.read_csv(file_path)
-else:
-    print(f"❌ Không tìm thấy file '{file_name}' tự động.")
-    manual_path = input("Vui lòng dán đường dẫn đầy đủ của file .csv: ").strip('"')
-    df = pd.read_csv(manual_path)
-
+engine = create_engine('mysql+pymysql://root:anh922006@localhost:3306/hanoi_aqi')
+df = pd.read_sql('SELECT * FROM aqi_data', con=engine)
+print(f"Đã đọc {len(df):,} hàng từ MySQL")
 
 df.columns = df.columns.str.strip().str.lower()
 df['local_time'] = pd.to_datetime(df['local_time'])
@@ -59,7 +41,7 @@ print("✅ Model sẵn sàng!\n")
 def get_season(month):
     if month in [12, 1, 2]:  return 0   # Đông
     elif month in [3, 4, 5]: return 1   # Xuân
-    elif month in [6, 7, 8]: return 2   # Hè
+    elif month in [6, 7, 8]: return 2   # Hạ
     else:                     return 3   # Thu
 
 def get_is_rush_hour(hour):
@@ -81,7 +63,7 @@ def get_aqi_level(aqi_value):
     elif aqi_value <= 300: return 'Very Unhealthy'
     else:                  return 'Hazardous'
 
-SEASON_MAP   = {0: 'Đông', 1: 'Xuân', 2: 'Hè', 3: 'Thu'}
+SEASON_MAP   = {0: 'Đông', 1: 'Xuân', 2: 'Hạ', 3: 'Thu'}
 SEASON_EMOJI = {0: '❄️', 1: '🌸', 2: '☀️', 3: '🍂'}
 
 # ══════════════════════════════════════════════════════
@@ -182,8 +164,8 @@ def get_context_advice(aqi_value, time_ctx, season_name, hour):
     # Theo mùa
     if season_name == 'Đông' and aqi_value > 100:
         advice.append("❄️ Mùa Đông: nghịch nhiệt khiến bụi mịn tích tụ — AQI thường xấu nhất năm, đặc biệt sáng sớm")
-    elif season_name == 'Hè':
-        advice.append("☀️ Mùa Hè: O3 và UV Index cao — tránh ra ngoài lúc 11h–15h dù AQI có vẻ ổn")
+    elif season_name == 'Hạ':
+        advice.append("☀️ Mùa Hạ: O3 và UV Index cao — tránh ra ngoài lúc 11h–15h dù AQI có vẻ ổn")
     elif season_name == 'Xuân':
         advice.append("🌸 Mùa Xuân: độ ẩm cao, sương mù nhiều — bụi mịn dễ tích tụ trong không khí ẩm")
     elif season_name == 'Thu' and aqi_value > 100:
