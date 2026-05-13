@@ -22,7 +22,7 @@ else:
 
 df.columns = df.columns.str.strip().str.lower()
 # Thay mật khẩu mySQL của mn vào chỗ anh922006 
-engine = create_engine('mysql+pymysql://root:anh922006@localhost:3306/hanoi_aqi')
+engine = create_engine('mysql+pymysql://root:minhtruong123.@localhost:3306/hanoi_aqi')
 
 # Đẩy toàn bộ data vào bảng
 df.to_sql(
