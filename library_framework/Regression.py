@@ -2,46 +2,75 @@ import pandas as pd
 import numpy as np
 import warnings
 from sqlalchemy import create_engine
-from sklearn.ensemble import RandomForestRegressor
+import xgboost as xgb
 
 warnings.filterwarnings('ignore')
 
+# ══════════════════════════════════════════════════════
+# 1. ĐỌC DỮ LIỆU
+# ══════════════════════════════════════════════════════
 engine = create_engine('mysql+pymysql://root:anh922006@localhost:3306/hanoi_aqi')
 df = pd.read_sql('SELECT * FROM aqi_data', con=engine)
-print(f"Đã đọc {len(df):,} hàng từ MySQL")
+print(f"✅ Đã đọc {len(df):,} hàng từ MySQL")
 
 df.columns = df.columns.str.strip().str.lower()
 df['local_time'] = pd.to_datetime(df['local_time'])
+df = df.sort_values('local_time').reset_index(drop=True)
 
+# ══════════════════════════════════════════════════════
+# 2. TẠO LAG FEATURES
+# ══════════════════════════════════════════════════════
+df['aqi_lag_1']   = df['aqi'].shift(1)
+df['aqi_lag_24']  = df['aqi'].shift(24)
+df['aqi_lag_168'] = df['aqi'].shift(168)
+df['aqi_roll_24'] = df['aqi'].shift(1).rolling(24).mean()
+df = df.dropna().copy()
+print(f"✅ Sau lag features: {len(df):,} hàng")
+
+# ══════════════════════════════════════════════════════
+# 3. FEATURES & TARGET
+# ══════════════════════════════════════════════════════
+# Bỏ hoàn toàn cột ô nhiễm real-time — chỉ dùng thời tiết + thời gian + lag AQI
 FEATURES = [
-    'co', 'no2', 'o3', 'pm10', 'pm25', 'so2',
+    # Thời tiết
     'clouds', 'precipitation', 'pressure',
     'relative_humidity', 'temperature', 'uv_index', 'wind_speed',
-    'month', 'hour', 'day_of_week', 'is_weekend', 'is_rush_hour', 'season'
+    # Thời gian
+    'month', 'hour', 'day_of_week', 'is_weekend', 'is_rush_hour', 'season',
+    # AQI quá khứ
+    'aqi_lag_1', 'aqi_lag_24', 'aqi_lag_168', 'aqi_roll_24'
 ]
-WEATHER_COLS = [c for c in FEATURES if c not in
-                ['month', 'hour', 'day_of_week', 'is_weekend', 'is_rush_hour', 'season']]
+
+WEATHER_COLS = ['clouds', 'precipitation', 'pressure',
+                'relative_humidity', 'temperature', 'uv_index', 'wind_speed']
+
 TARGET = 'aqi'
 
 train   = df[df['year'] < 2025].copy()
 X_train = train[FEATURES]
 y_train = train[TARGET]
 
-rf_model = RandomForestRegressor(
-    n_estimators=200, max_depth=15,
-    min_samples_leaf=5, random_state=42, n_jobs=-1
+xgb_model = xgb.XGBRegressor(
+    n_estimators=300,
+    max_depth=6,
+    learning_rate=0.05,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    random_state=42,
+    n_jobs=-1,
+    verbosity=0
 )
 print("⏳ Đang huấn luyện model...")
-rf_model.fit(X_train, y_train)
+xgb_model.fit(X_train, y_train)
 print("✅ Model sẵn sàng!\n")
 
 # ══════════════════════════════════════════════════════
-# 2. HÀM PHỤ TRỢ
+# 4. HÀM PHỤ TRỢ
 # ══════════════════════════════════════════════════════
 def get_season(month):
     if month in [12, 1, 2]:  return 0   # Đông
     elif month in [3, 4, 5]: return 1   # Xuân
-    elif month in [6, 7, 8]: return 2   # Hạ
+    elif month in [6, 7, 8]: return 2   # Hè
     else:                     return 3   # Thu
 
 def get_is_rush_hour(hour):
@@ -56,18 +85,18 @@ def get_time_context(hour, is_rush_hour, is_weekend):
     else:                   return 'night'
 
 def get_aqi_level(aqi_value):
-    if aqi_value <= 50:   return 'Good'
+    if aqi_value <= 50:    return 'Good'
     elif aqi_value <= 100: return 'Moderate'
     elif aqi_value <= 150: return 'Unhealthy for sensitive groups'
     elif aqi_value <= 200: return 'Unhealthy'
     elif aqi_value <= 300: return 'Very Unhealthy'
     else:                  return 'Hazardous'
 
-SEASON_MAP   = {0: 'Đông', 1: 'Xuân', 2: 'Hạ', 3: 'Thu'}
-SEASON_EMOJI = {0: '❄️', 1: '🌸', 2: '☀️', 3: '🍂'}
+SEASON_MAP   = {0: 'Đông', 1: 'Xuân', 2: 'Hè', 3: 'Thu'}
+SEASON_EMOJI = {0: '❄️',   1: '🌸',   2: '☀️', 3: '🍂'}
 
 # ══════════════════════════════════════════════════════
-# 3. KHUYẾN NGHỊ THEO NHÓM NGƯỜI DÙNG
+# 5. KHUYẾN NGHỊ THEO NHÓM NGƯỜI DÙNG
 # ══════════════════════════════════════════════════════
 AQI_RULES = {
     'Good': {
@@ -115,13 +144,12 @@ AQI_RULES = {
 }
 
 # ══════════════════════════════════════════════════════
-# 4. KHUYẾN NGHỊ CONTEXT-AWARE
+# 6. KHUYẾN NGHỊ CONTEXT-AWARE
 # ══════════════════════════════════════════════════════
 def get_context_advice(aqi_value, time_ctx, season_name, hour):
     level  = get_aqi_level(aqi_value)
     advice = []
 
-    # Theo khung giờ
     if time_ctx == 'rush_morning':
         if aqi_value > 100:
             advice.append("🚗 Giờ cao điểm sáng + ô nhiễm cao: tránh Nguyễn Trãi, Tây Sơn, Giải Phóng — PM2.5 từ khói xe rất cao")
@@ -161,30 +189,28 @@ def get_context_advice(aqi_value, time_ctx, season_name, hour):
         else:
             advice.append("🌙 Ban đêm AQI tốt: yên tâm ngủ, có thể mở hé cửa sổ thông gió nhẹ")
 
-    # Theo mùa
     if season_name == 'Đông' and aqi_value > 100:
         advice.append("❄️ Mùa Đông: nghịch nhiệt khiến bụi mịn tích tụ — AQI thường xấu nhất năm, đặc biệt sáng sớm")
-    elif season_name == 'Hạ':
-        advice.append("☀️ Mùa Hạ: O3 và UV Index cao — tránh ra ngoài lúc 11h–15h dù AQI có vẻ ổn")
+    elif season_name == 'Hè':
+        advice.append("☀️ Mùa Hè: O3 và UV Index cao — tránh ra ngoài lúc 11h–15h dù AQI có vẻ ổn")
     elif season_name == 'Xuân':
         advice.append("🌸 Mùa Xuân: độ ẩm cao, sương mù nhiều — bụi mịn dễ tích tụ trong không khí ẩm")
     elif season_name == 'Thu' and aqi_value > 100:
         advice.append("🍂 Mùa Thu: gió mùa Đông Bắc bắt đầu — ô nhiễm có xu hướng tăng cuối mùa")
 
-    # Lời khuyên chung theo mức
     general = {
-        'Good':                              "🍃 Không khí trong lành: tăng cường thông gió, mở cửa sổ thoải mái",
-        'Moderate':                          "🌤️ AQI trung bình: có thể mở cửa sổ, hạn chế nếu nhà gần đường lớn",
-        'Unhealthy for sensitive groups':    "🏠 Nên đóng bớt cửa sổ, dùng máy lọc không khí nếu có",
-        'Unhealthy':                         "🚫 Đóng chặt cửa sổ, bật máy lọc không khí liên tục",
-        'Very Unhealthy':                    "🚨 Đóng kín toàn bộ cửa sổ, tránh mọi khe hở thông gió",
-        'Hazardous':                         "🚨 Cực kỳ nguy hiểm — đóng kín nhà cửa, lọc khí tối đa"
+        'Good':                           "🍃 Không khí trong lành: tăng cường thông gió, mở cửa sổ thoải mái",
+        'Moderate':                       "🌤️ AQI trung bình: có thể mở cửa sổ, hạn chế nếu nhà gần đường lớn",
+        'Unhealthy for sensitive groups': "🏠 Nên đóng bớt cửa sổ, dùng máy lọc không khí nếu có",
+        'Unhealthy':                      "🚫 Đóng chặt cửa sổ, bật máy lọc không khí liên tục",
+        'Very Unhealthy':                 "🚨 Đóng kín toàn bộ cửa sổ, tránh mọi khe hở thông gió",
+        'Hazardous':                      "🚨 Cực kỳ nguy hiểm — đóng kín nhà cửa, lọc khí tối đa"
     }
     advice.append(general[level])
     return advice
 
 # ══════════════════════════════════════════════════════
-# 5. ỨNG DỤNG NHẬP NGÀY THÁNG DỰ BÁO
+# 7. ỨNG DỤNG NHẬP NGÀY THÁNG DỰ BÁO
 # ══════════════════════════════════════════════════════
 def predict_by_datetime():
     print("\n" + "═"*62)
@@ -192,7 +218,7 @@ def predict_by_datetime():
     print("═"*62)
 
     try:
-        date_input = input("\n📅 Nhập ngày (YYYY-MM-DD), VD: 2026-03-20: ").strip()
+        date_input = input("\n📅 Nhập ngày (YYYY-MM-DD): ").strip()
         hour_input = int(input("⏰ Nhập giờ (0-23): ").strip())
 
         if not (0 <= hour_input <= 23):
@@ -207,11 +233,17 @@ def predict_by_datetime():
         time_ctx    = get_time_context(hour_input, is_rush, is_weekend)
         season_name = SEASON_MAP[season]
 
-        # Lấy trung bình thời tiết theo tháng + giờ tương ứng trong lịch sử
+        # Trung bình thời tiết theo tháng + giờ trong lịch sử
         mask = (df['month'] == month) & (df['hour'] == hour_input)
         if mask.sum() == 0:
             mask = df['month'] == month
         avg_weather = df[mask][WEATHER_COLS].mean().to_dict()
+
+        # Lag AQI: lấy trung bình lịch sử theo cùng tháng + giờ
+        aqi_lag_1   = df[mask]['aqi_lag_1'].mean()
+        aqi_lag_24  = df[mask]['aqi_lag_24'].mean()
+        aqi_lag_168 = df[mask]['aqi_lag_168'].mean()
+        aqi_roll_24 = df[mask]['aqi_roll_24'].mean()
 
         user_input = {
             **avg_weather,
@@ -221,28 +253,31 @@ def predict_by_datetime():
             'is_weekend':   is_weekend,
             'is_rush_hour': is_rush,
             'season':       season,
+            'aqi_lag_1':    aqi_lag_1,
+            'aqi_lag_24':   aqi_lag_24,
+            'aqi_lag_168':  aqi_lag_168,
+            'aqi_roll_24':  aqi_roll_24,
         }
 
-        input_df = pd.DataFrame([user_input])[FEATURES]
-        pred_aqi = rf_model.predict(input_df)[0]
+        input_df         = pd.DataFrame([user_input])[FEATURES]
+        pred_aqi         = xgb_model.predict(input_df)[0]
         pred_aqi_rounded = round(pred_aqi)
-        level    = get_aqi_level(pred_aqi_rounded)
-        rec      = AQI_RULES[level]
-        ctx_tips = get_context_advice(pred_aqi_rounded, time_ctx, season_name, hour_input)
+        level            = get_aqi_level(pred_aqi_rounded)
+        rec              = AQI_RULES[level]
+        ctx_tips         = get_context_advice(pred_aqi_rounded, time_ctx, season_name, hour_input)
 
-        # Labels hiển thị
         rush_label    = "Giờ cao điểm 🚦" if is_rush else "Không cao điểm"
         weekend_label = "Cuối tuần 🎉" if is_weekend else "Ngày thường"
-        dow_names     = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật']
+        dow_names     = ['Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy','Chủ Nhật']
         dow_label     = dow_names[target_date.dayofweek]
 
         print("\n" + "─"*62)
         print(f"📅  {date_input}  {hour_input:02d}:00  |  {dow_label}  |  {weekend_label}")
         print(f"🗓️   Mùa: {SEASON_EMOJI[season]} {season_name}  |  {rush_label}")
         print(f"🌡️   Nhiệt độ: {avg_weather['temperature']:.1f}°C  |  Độ ẩm: {avg_weather['relative_humidity']:.0f}%  |  Gió: {avg_weather['wind_speed']:.1f} m/s")
-        print(f"🏭  PM2.5: {avg_weather['pm25']:.1f}  |  PM10: {avg_weather['pm10']:.1f}  |  NO2: {avg_weather['no2']:.1f}")
+        print(f"📈  AQI lag 1h: {aqi_lag_1:.1f}  |  lag 24h: {aqi_lag_24:.1f}  |  TB 24h: {aqi_roll_24:.1f}")
         print("─"*62)
-        print(f"\n{rec['emoji']}  AQI DỰ BÁO: {round(pred_aqi, 1)}  →  {level}")
+        print(f"\n{rec['emoji']}  AQI DỰ BÁO: {pred_aqi:.2f}  →  {level}")
         print("\n👥 KHUYẾN NGHỊ THEO NHÓM:")
         print(f"   • Trẻ em           : {rec['Trẻ em']}")
         print(f"   • Người già        : {rec['Người già']}")
@@ -253,7 +288,6 @@ def predict_by_datetime():
             print(f"   → {tip}")
         print("\n" + "═"*62)
 
-        # Hỏi có muốn dự báo tiếp không
         again = input("\n🔄 Dự báo thêm giờ khác? (y/n): ").strip().lower()
         if again == 'y':
             predict_by_datetime()
@@ -264,22 +298,7 @@ def predict_by_datetime():
         print(f"❌ Lỗi: {e}")
 
 # ══════════════════════════════════════════════════════
-# 6. LƯU FILE
-# ══════════════════════════════════════════════════════
-rec_table = []
-for cat, info in AQI_RULES.items():
-    lo, hi = info['range']
-    rec_table.append({
-        'Mức AQI':     f"{lo}–{'500+' if hi >= 999 else hi}",
-        'Danh mục':    cat,
-        'Trẻ em':      info['Trẻ em'],
-        'Người già':   info['Người già'],
-        'Bệnh hô hấp': info['Bệnh hô hấp'],
-        'Khỏe mạnh':   info['Người khỏe mạnh'],
-    })
-
-# ══════════════════════════════════════════════════════
-# 7. CHẠY ỨNG DỤNG
+# 8. CHẠY ỨNG DỤNG
 # ══════════════════════════════════════════════════════
 if __name__ == "__main__":
     predict_by_datetime()
