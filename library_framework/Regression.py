@@ -18,31 +18,21 @@ df['local_time'] = pd.to_datetime(df['local_time'])
 df = df.sort_values('local_time').reset_index(drop=True)
 
 # ══════════════════════════════════════════════════════
-# 2. TẠO LAG FEATURES
+# 2. FEATURES & TARGET
 # ══════════════════════════════════════════════════════
-df['aqi_lag_1']   = df['aqi'].shift(1)
-df['aqi_lag_24']  = df['aqi'].shift(24)
-df['aqi_lag_168'] = df['aqi'].shift(168)
-df['aqi_roll_24'] = df['aqi'].shift(1).rolling(24).mean()
-df = df.dropna().copy()
-print(f"✅ Sau lag features: {len(df):,} hàng")
-
-# ══════════════════════════════════════════════════════
-# 3. FEATURES & TARGET
-# ══════════════════════════════════════════════════════
-# Bỏ hoàn toàn cột ô nhiễm real-time — chỉ dùng thời tiết + thời gian + lag AQI
+# Dùng ô nhiễm real-time — đúng với thực tế có sensor
 FEATURES = [
-    # Thời tiết
+    'co', 'no2', 'o3', 'pm10', 'pm25', 'so2',
     'clouds', 'precipitation', 'pressure',
     'relative_humidity', 'temperature', 'uv_index', 'wind_speed',
-    # Thời gian
-    'month', 'hour', 'day_of_week', 'is_weekend', 'is_rush_hour', 'season',
-    # AQI quá khứ
-    'aqi_lag_1', 'aqi_lag_24', 'aqi_lag_168', 'aqi_roll_24'
+    'month', 'hour', 'day_of_week', 'is_weekend', 'is_rush_hour', 'season'
 ]
 
-WEATHER_COLS = ['clouds', 'precipitation', 'pressure',
-                'relative_humidity', 'temperature', 'uv_index', 'wind_speed']
+WEATHER_COLS = [
+    'co', 'no2', 'o3', 'pm10', 'pm25', 'so2',
+    'clouds', 'precipitation', 'pressure',
+    'relative_humidity', 'temperature', 'uv_index', 'wind_speed'
+]
 
 TARGET = 'aqi'
 
@@ -50,6 +40,11 @@ train   = df[df['year'] < 2025].copy()
 X_train = train[FEATURES]
 y_train = train[TARGET]
 
+print(f"\nTrain: {len(train):,} hàng (2022–2024)")
+
+# ══════════════════════════════════════════════════════
+# 3. TRAIN XGBOOST
+# ══════════════════════════════════════════════════════
 xgb_model = xgb.XGBRegressor(
     n_estimators=300,
     max_depth=6,
@@ -227,36 +222,38 @@ def predict_by_datetime():
 
         target_date = pd.to_datetime(date_input)
         month       = target_date.month
+        year        = target_date.year
         season      = get_season(month)
         is_weekend  = 1 if target_date.dayofweek >= 5 else 0
         is_rush     = get_is_rush_hour(hour_input)
         time_ctx    = get_time_context(hour_input, is_rush, is_weekend)
         season_name = SEASON_MAP[season]
 
-        # Trung bình thời tiết theo tháng + giờ trong lịch sử
-        mask = (df['month'] == month) & (df['hour'] == hour_input)
-        if mask.sum() == 0:
-            mask = df['month'] == month
-        avg_weather = df[mask][WEATHER_COLS].mean().to_dict()
-
-        # Lag AQI: lấy trung bình lịch sử theo cùng tháng + giờ
-        aqi_lag_1   = df[mask]['aqi_lag_1'].mean()
-        aqi_lag_24  = df[mask]['aqi_lag_24'].mean()
-        aqi_lag_168 = df[mask]['aqi_lag_168'].mean()
-        aqi_roll_24 = df[mask]['aqi_roll_24'].mean()
+        actual_data = df[(df['local_time'].dt.date == target_date.date()) & (df['hour'] == hour_input)]
+        
+        if year == 2025 and not actual_data.empty:
+            print(f"📡 Đang sử dụng chỉ số thực tế (Real-time) từ hệ thống năm 2025...")
+            # Lấy tất cả trừ cột AQI (Target)
+            input_values = actual_data[WEATHER_COLS].iloc[0].to_dict()
+            source_type = "Số liệu thực tế từ trạm đo"
+        else:
+            print(f"📚 Đang ước tính chỉ số dựa trên hồ sơ lịch sử (tháng {month}, {hour_input}h)...")
+            # Lấy trung bình lịch sử từ tập Train (trước 2025)
+            historical_data = df[df['year'] < 2025]
+            mask = (historical_data['month'] == month) & (historical_data['hour'] == hour_input)
+            if mask.sum() == 0:
+                mask = historical_data['month'] == month
+            input_values = historical_data[mask][WEATHER_COLS].mean().to_dict()
+            source_type = "Số liệu trung bình lịch sử"
 
         user_input = {
-            **avg_weather,
+            **input_values,
             'month':        month,
             'hour':         hour_input,
             'day_of_week':  target_date.dayofweek,
             'is_weekend':   is_weekend,
             'is_rush_hour': is_rush,
             'season':       season,
-            'aqi_lag_1':    aqi_lag_1,
-            'aqi_lag_24':   aqi_lag_24,
-            'aqi_lag_168':  aqi_lag_168,
-            'aqi_roll_24':  aqi_roll_24,
         }
 
         input_df         = pd.DataFrame([user_input])[FEATURES]
@@ -274,10 +271,10 @@ def predict_by_datetime():
         print("\n" + "─"*62)
         print(f"📅  {date_input}  {hour_input:02d}:00  |  {dow_label}  |  {weekend_label}")
         print(f"🗓️   Mùa: {SEASON_EMOJI[season]} {season_name}  |  {rush_label}")
-        print(f"🌡️   Nhiệt độ: {avg_weather['temperature']:.1f}°C  |  Độ ẩm: {avg_weather['relative_humidity']:.0f}%  |  Gió: {avg_weather['wind_speed']:.1f} m/s")
-        print(f"📈  AQI lag 1h: {aqi_lag_1:.1f}  |  lag 24h: {aqi_lag_24:.1f}  |  TB 24h: {aqi_roll_24:.1f}")
+        print(f"🌡️   Nhiệt độ: {input_values['temperature']:.1f}°C  |  Độ ẩm: {input_values['relative_humidity']:.0f}%  |  Gió: {input_values['wind_speed']:.1f} m/s")
+        print(f"🏭  PM2.5: {input_values['pm25']:.1f}  |  PM10: {input_values['pm10']:.1f}  |  NO2: {input_values['no2']:.1f}")
         print("─"*62)
-        print(f"\n{rec['emoji']}  AQI DỰ BÁO: {pred_aqi:.2f}  →  {level}")
+        print(f"\n{rec['emoji']}  AQI DỰ BÁO: {round(pred_aqi, 1)}  →  {level}")
         print("\n👥 KHUYẾN NGHỊ THEO NHÓM:")
         print(f"   • Trẻ em           : {rec['Trẻ em']}")
         print(f"   • Người già        : {rec['Người già']}")
