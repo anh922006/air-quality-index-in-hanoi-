@@ -3,13 +3,20 @@ import numpy as np
 import warnings
 from sqlalchemy import create_engine
 import xgboost as xgb
+import os
+from dotenv import load_dotenv
 
 warnings.filterwarnings('ignore')
 
-# ══════════════════════════════════════════════════════
-# 1. ĐỌC DỮ LIỆU
-# ══════════════════════════════════════════════════════
-engine = create_engine('mysql+pymysql://root:anh922006@localhost:3306/hanoi_aqi')
+load_dotenv()
+
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
+
+engine = create_engine(f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
 df = pd.read_sql('SELECT * FROM aqi_data', con=engine)
 print(f"✅ Đã đọc {len(df):,} hàng từ MySQL")
 

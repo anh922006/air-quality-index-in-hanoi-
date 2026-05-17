@@ -1,6 +1,15 @@
 import pandas as pd
 import os
 from sqlalchemy import create_engine
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
 
 def find_data_file(filename):
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -21,7 +30,7 @@ else:
     df = pd.read_csv(manual_path)
 
 df.columns = df.columns.str.strip().str.lower()
-engine = create_engine('mysql+pymysql://root:anh922006.@localhost:3306/hanoi_aqi')
+engine = create_engine(f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
 
 # Đẩy toàn bộ data vào bảng
 df.to_sql(
