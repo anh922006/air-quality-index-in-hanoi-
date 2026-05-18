@@ -25,9 +25,9 @@ df['local_time'] = pd.to_datetime(df['local_time'])
 df = df.sort_values('local_time').reset_index(drop=True)
 
 # ══════════════════════════════════════════════════════
-# 2. FEATURES & TARGET
+# FEATURES & TARGET
 # ══════════════════════════════════════════════════════
-# Dùng ô nhiễm real-time — đúng với thực tế có sensor
+# Dùng ô nhiễm real-time 
 FEATURES = [
     'co', 'no2', 'o3', 'pm10', 'pm25', 'so2',
     'clouds', 'precipitation', 'pressure',
@@ -50,7 +50,7 @@ y_train = train[TARGET]
 print(f"\nTrain: {len(train):,} hàng (2022–2024)")
 
 # ══════════════════════════════════════════════════════
-# 3. TRAIN XGBOOST
+# TRAIN XGBOOST
 # ══════════════════════════════════════════════════════
 xgb_model = xgb.XGBRegressor(
     n_estimators=300,
@@ -67,12 +67,12 @@ xgb_model.fit(X_train, y_train)
 print("✅ Model sẵn sàng!\n")
 
 # ══════════════════════════════════════════════════════
-# 4. HÀM PHỤ TRỢ
+# HÀM PHỤ TRỢ
 # ══════════════════════════════════════════════════════
 def get_season(month):
     if month in [12, 1, 2]:  return 0   # Đông
     elif month in [3, 4, 5]: return 1   # Xuân
-    elif month in [6, 7, 8]: return 2   # Hè
+    elif month in [6, 7, 8]: return 2   # Hạ
     else:                     return 3   # Thu
 
 def get_is_rush_hour(hour):
@@ -94,11 +94,11 @@ def get_aqi_level(aqi_value):
     elif aqi_value <= 300: return 'Very Unhealthy'
     else:                  return 'Hazardous'
 
-SEASON_MAP   = {0: 'Đông', 1: 'Xuân', 2: 'Hè', 3: 'Thu'}
+SEASON_MAP   = {0: 'Đông', 1: 'Xuân', 2: 'Hạ', 3: 'Thu'}
 SEASON_EMOJI = {0: '❄️',   1: '🌸',   2: '☀️', 3: '🍂'}
 
 # ══════════════════════════════════════════════════════
-# 5. KHUYẾN NGHỊ THEO NHÓM NGƯỜI DÙNG
+#  KHUYẾN NGHỊ THEO NHÓM NGƯỜI DÙNG
 # ══════════════════════════════════════════════════════
 AQI_RULES = {
     'Good': {
@@ -146,7 +146,7 @@ AQI_RULES = {
 }
 
 # ══════════════════════════════════════════════════════
-# 6. KHUYẾN NGHỊ CONTEXT-AWARE
+#  KHUYẾN NGHỊ CONTEXT-AWARE
 # ══════════════════════════════════════════════════════
 def get_context_advice(aqi_value, time_ctx, season_name, hour):
     level  = get_aqi_level(aqi_value)
@@ -193,8 +193,8 @@ def get_context_advice(aqi_value, time_ctx, season_name, hour):
 
     if season_name == 'Đông' and aqi_value > 100:
         advice.append("❄️ Mùa Đông: nghịch nhiệt khiến bụi mịn tích tụ — AQI thường xấu nhất năm, đặc biệt sáng sớm")
-    elif season_name == 'Hè':
-        advice.append("☀️ Mùa Hè: O3 và UV Index cao — tránh ra ngoài lúc 11h–15h dù AQI có vẻ ổn")
+    elif season_name == 'Hạ':
+        advice.append("☀️ Mùa Hạ: O3 và UV Index cao — tránh ra ngoài lúc 11h–15h dù AQI có vẻ ổn")
     elif season_name == 'Xuân':
         advice.append("🌸 Mùa Xuân: độ ẩm cao, sương mù nhiều — bụi mịn dễ tích tụ trong không khí ẩm")
     elif season_name == 'Thu' and aqi_value > 100:
@@ -212,7 +212,7 @@ def get_context_advice(aqi_value, time_ctx, season_name, hour):
     return advice
 
 # ══════════════════════════════════════════════════════
-# 7. ỨNG DỤNG NHẬP NGÀY THÁNG DỰ BÁO
+#  ỨNG DỤNG NHẬP NGÀY THÁNG DỰ BÁO
 # ══════════════════════════════════════════════════════
 def predict_by_datetime():
     print("\n" + "═"*62)
@@ -301,8 +301,5 @@ def predict_by_datetime():
     except Exception as e:
         print(f"❌ Lỗi: {e}")
 
-# ══════════════════════════════════════════════════════
-# 8. CHẠY ỨNG DỤNG
-# ══════════════════════════════════════════════════════
 if __name__ == "__main__":
     predict_by_datetime()
