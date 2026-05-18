@@ -2,8 +2,11 @@ import pandas as pd
 import os
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+current_dir = Path(__file__).resolve().parent
+dotenv_path = current_dir.parent / '.env'
+load_dotenv(dotenv_path=dotenv_path)
 
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
@@ -30,9 +33,9 @@ else:
     df = pd.read_csv(manual_path)
 
 df.columns = df.columns.str.strip().str.lower()
+
 engine = create_engine(f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
 
-# Đẩy toàn bộ data vào bảng
 df.to_sql(
     name='aqi_data',       
     con=engine,
@@ -41,4 +44,4 @@ df.to_sql(
     chunksize=1000        
 )
 
-print(f"✅ Đã đẩy {len(df):,} hàng vào MySQL table 'aqi_data'")
+print(f" Đã đẩy {len(df):,} hàng vào MySQL table 'aqi_data'")
