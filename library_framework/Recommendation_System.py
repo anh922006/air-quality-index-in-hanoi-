@@ -1,3 +1,4 @@
+import joblib
 import pandas as pd
 import numpy as np
 import warnings
@@ -23,36 +24,98 @@ print(f"Đã đọc {len(df):,} hàng từ MySQL")
 df.columns = df.columns.str.strip().str.lower()
 df['local_time'] = pd.to_datetime(df['local_time'])
 
+# ---------- LAGS ----------
+df['aqi_lag_1']   = df['aqi'].shift(1)
+df['aqi_lag_2']   = df['aqi'].shift(2)
+df['aqi_lag_3']   = df['aqi'].shift(3)
+
+
+df['aqi_lag_6']   = df['aqi'].shift(6)
+df['aqi_lag_12']  = df['aqi'].shift(12)
+
+
+df['aqi_lag_24']  = df['aqi'].shift(24)
+df['aqi_lag_48']  = df['aqi'].shift(48)
+
+
+df['aqi_lag_168'] = df['aqi'].shift(168)
+
+
+# --- AQI ROLLING & EMA ---
+df['aqi_roll_6']  = df['aqi'].shift(1).rolling(6).mean()
+df['aqi_roll_12'] = df['aqi'].shift(1).rolling(12).mean()
+df['aqi_roll_24'] = df['aqi'].shift(1).rolling(24).mean()
+df['aqi_roll_48'] = df['aqi'].shift(1).rolling(48).mean()
+df['aqi_ema_12']  = df['aqi'].shift(1).ewm(span=12).mean()
+df['aqi_ema_24']  = df['aqi'].shift(1).ewm(span=24).mean()
+
+
+# --- AQI TREND ---
+df['aqi_trend_1']  = df['aqi_lag_1'] - df['aqi_lag_2']
+df['aqi_trend_6']  = df['aqi_lag_1'] - df['aqi_lag_6']
+df['aqi_trend_24'] = df['aqi_lag_1'] - df['aqi_lag_24']
+
+
+#  PM2.5 FEATURES 
+df['pm25_lag_1'] = df['pm25'].shift(1)
+df['pm25_lag_6'] = df['pm25'].shift(6)
+df['pm25_lag_24'] = df['pm25'].shift(24)
+
+df['pm25_roll_24'] = df['pm25'].shift(1).rolling(24).mean()
+df['pm25_ema_24']  = df['pm25'].shift(1).ewm(span=24).mean()
+
+df['pm10_lag_1'] = df['pm10'].shift(1)
+
+WEATHER_LAG_COLS = ['clouds', 'precipitation', 'pressure', 'relative_humidity', 'temperature', 'uv_index', 'wind_speed']
+for col in WEATHER_LAG_COLS:
+    df[f'{col}_lag_1'] = df[col].shift(1)
+
+df = df.dropna().copy()
+
+print(f" Sau khi tạo lag features: {len(df):,} hàng")
+
+# =====================================================
+# FEATURES & TARGET
+# =====================================================
+
 FEATURES = [
-    'co', 'no2', 'o3', 'pm10', 'pm25', 'so2',
-    'clouds', 'precipitation', 'pressure',
-    'relative_humidity', 'temperature', 'uv_index', 'wind_speed',
-    'month', 'hour', 'day_of_week', 'is_weekend', 'is_rush_hour', 'season'
+    # WEATHER
+    'clouds_lag_1', 'precipitation_lag_1', 'pressure_lag_1', 
+    'relative_humidity_lag_1', 'temperature_lag_1', 'uv_index_lag_1', 'wind_speed_lag_1',
+
+    # TIME
+    'month', 'hour', 'day_of_week', 'is_weekend', 'is_rush_hour', 'season',
+
+    # AQI LAGS
+    'aqi_lag_1', 'aqi_lag_2', 'aqi_lag_3', 'aqi_lag_6', 'aqi_lag_12', 'aqi_lag_24', 'aqi_lag_48', 'aqi_lag_168',
+
+    # AQI ROLLING & EMA & TREND
+    'aqi_roll_6', 'aqi_roll_12', 'aqi_roll_24', 'aqi_roll_48',
+    'aqi_ema_12', 'aqi_ema_24',
+    'aqi_trend_1', 'aqi_trend_6', 'aqi_trend_24',
+
+    # PM2.5 & PM10 LAGS
+    'pm25_lag_1', 'pm25_lag_6', 'pm25_lag_24', 'pm25_roll_24', 'pm25_ema_24',
+    'pm10_lag_1'
 ]
+
 TARGET = 'aqi'
 
 train   = df[df['year'] < 2025].copy()
-test    = df[df['year'] == 2025].copy()
+test    = df[df['year'] >= 2025].copy()
 X_train = train[FEATURES]
 y_train = train[TARGET]
 
-print(f"Train: {len(train):,} hàng (2022–2024)")
-print(f"Test : {len(test):,} hàng (2025)")
+print(f"\nTrain: {len(train):,} hàng (2022–2024)")
 
-xgb_model = xgb.XGBRegressor(
-    n_estimators=300,
-    max_depth=6,
-    learning_rate=0.05,
-    subsample=0.8,
-    colsample_bytree=0.8,
-    random_state=42,
-    n_jobs=-1,
-    verbosity=0
-)
-
-print("⏳ Đang huấn luyện model...")
-xgb_model.fit(X_train, y_train)
-print("✅ Model sẵn sàng!")
+# Tải mô hình đã lưu từ trước
+MODEL_PATH = "library_framework/best_model.pkl"
+if os.path.exists(MODEL_PATH):
+    print("⏳ Đang tải model đã train...")
+    xgb_model = joblib.load(MODEL_PATH)
+    print("✅ Model đã được load thành công!\n")
+else:
+    raise FileNotFoundError(f"❌ Không tìm thấy file {MODEL_PATH}!")
 
 # ══════════════════════════════════════════════════════
 #  PHÂN LOẠI CONTEXT
@@ -134,9 +197,6 @@ def get_aqi_level(aqi_value):
 #  KHUYẾN NGHỊ CONTEXT-AWARE (THÔNG MINH)
 # ══════════════════════════════════════════════════════
 def get_context_advice(aqi_value, time_ctx, season_name, hour):
-    """
-    Trả về lời khuyên thông minh dựa trên AQI + thời điểm + mùa
-    """
     level = get_aqi_level(aqi_value)
     advice = []
 
@@ -220,47 +280,117 @@ def get_context_advice(aqi_value, time_ctx, season_name, hour):
 #  DEMO — 6 CASE MINH HỌA
 # ══════════════════════════════════════════════════════
 SEASON_MAP = {0: 'Đông', 1: 'Xuân', 2: 'Hạ', 3: 'Thu'}
+WEEKDAY_MAP = {
+    0: 'Thứ Hai', 1: 'Thứ Ba', 2: 'Thứ Tư', 
+    3: 'Thứ Năm', 4: 'Thứ Sáu', 5: 'Thứ Bảy', 6: 'Chủ Nhật'
+}
 
 cases = []
-for cat in ['Good', 'Moderate', 'Unhealthy for sensitive groups',
-            'Unhealthy', 'Very Unhealthy', 'Hazardous']:
-    test['aqi_category'] = test['aqi_category'].str.strip()
-    subset = test[test['aqi_category'] == cat]
-    if len(subset) > 0:
-        median_aqi = subset['aqi'].median()
-        row = subset.iloc[(subset['aqi'] - median_aqi).abs().argsort().iloc[0]]
-        pred_aqi = xgb_model.predict(pd.DataFrame([row[FEATURES]]))[0]
-        level    = get_aqi_level(round(pred_aqi))
-        time_ctx = get_time_context(row['hour'], row['is_rush_hour'], row['is_weekend'])
-        season_n = SEASON_MAP.get(row['season'], 'Không rõ')
-        ctx_advice = get_context_advice(round(pred_aqi), time_ctx, season_n, row['hour'])
+
+for season_code, season_name in SEASON_MAP.items():
+    season_subset = test[test['season'] == season_code].copy()
+    
+    if len(season_subset) == 0:
+        continue
+        
+    season_subset = season_subset.sort_values('aqi').reset_index(drop=True)
+    
+    # Chọn Mốc vị trí 25% (Đại diện ngày không khí sạch) và Mốc 85% (Đại diện ngày ô nhiễm đỉnh điểm của mùa)
+    idx_selected = [int(len(season_subset) * 0.25), int(len(season_subset) * 0.85)]
+    
+    for idx in idx_selected:
+        if idx >= len(season_subset): 
+            continue
+            
+        row = season_subset.iloc[idx]
+        
+        month_val       = int(row['month'])
+        hour_val        = int(row['hour'])
+        day_of_week_val = int(row['day_of_week'])
+        is_weekend_val  = int(row['is_weekend'])
+        is_rush_val     = int(row['is_rush_hour'])
+        weekday_name = WEEKDAY_MAP.get(day_of_week_val, f"Thứ {day_of_week_val}")
+
+        matched_row = df[df['local_time'] == row['local_time']]
+        
+        if not matched_row.empty and not pd.isna(matched_row['aqi_lag_1'].values[0]):
+            input_features_dict = matched_row[FEATURES].iloc[0].to_dict()
+            source_type = f"Dữ liệu chuỗi trễ thực tế"
+            
+            temp_show = matched_row['temperature_lag_1'].values[0]
+            rh_show   = matched_row['relative_humidity_lag_1'].values[0]
+            ws_show   = matched_row['wind_speed_lag_1'].values[0]
+            pm25_show = matched_row['pm25_lag_1'].values[0]
+            pm10_show = matched_row['pm10_lag_1'].values[0]
+        else:
+            mask = (train['month'] == month_val) & (train['hour'] == hour_val)
+            if mask.sum() == 0: 
+                mask = train['month'] == month_val
+                
+            input_features_dict = train[mask][FEATURES].mean().to_dict()
+            source_type = f"Ước lượng trung bình lịch sử (Tập Train)"
+            
+            temp_show = input_features_dict.get('temperature_lag_1', 25.0)
+            rh_show   = input_features_dict.get('relative_humidity_lag_1', 75.0)
+            ws_show   = input_features_dict.get('wind_speed_lag_1', 1.5)
+            pm25_show = input_features_dict.get('pm25_lag_1', 40.0)
+            pm10_show = input_features_dict.get('pm10_lag_1', 60.0)
+
+        input_features_dict.update({
+            'month':        month_val,
+            'hour':         hour_val,
+            'day_of_week':  day_of_week_val,
+            'is_weekend':   is_weekend_val,
+            'is_rush_hour': is_rush_val,
+            'season':       season_code
+        })
+        
+        input_df = pd.DataFrame([input_features_dict])[FEATURES]
+        
+        pred_aqi = round(float(xgb_model.predict(input_df)[0]), 1)
+        
+        pred_aqi_rounded = int(np.round(pred_aqi))
+        level            = get_aqi_level(pred_aqi_rounded)
+        
+        time_ctx = get_time_context(hour_val, is_rush_val, is_weekend_val)
+        ctx_advice = get_context_advice(pred_aqi_rounded, time_ctx, season_name, hour_val)
 
         cases.append({
-            'Thời điểm':   str(row['local_time'])[:13] + 'h',
-            'AQI thực tế': row['aqi'],
-            'AQI dự báo':  round(pred_aqi, 1),
-            'Mức độ':      level,
-            'Mùa':         season_n,
+            'Thời điểm':     str(row['local_time'])[:13] + 'h',
+            'Thứ':           weekday_name,
+            'AQI thực tế':   row['aqi'],
+            'AQI dự báo':    pred_aqi,
+            'Mức độ':        level,
+            'Mùa':           season_name,
             'Thời điểm ctx': time_ctx,
-            'Khuyến nghị': AQI_RULES[level],
-            'Context':     ctx_advice
+            'Khuyến nghị':   AQI_RULES[level],
+            'Context':       ctx_advice,
+            'Nguồn':         source_type,
+            'Nhiệt độ':      round(temp_show, 1),
+            'Độ ẩm':         round(rh_show, 1),
+            'Gió':           round(ws_show, 1),
+            'PM2.5':         round(pm25_show, 1),
+            'PM10':          round(pm10_show, 1)
         })
 
-print("\n" + "="*65)
-print("HỆ THỐNG KHUYẾN NGHỊ THÔNG MINH — 6 CASE MINH HỌA")
-print("="*65)
+print("\n" + "="*75)
+print("HỆ THỐNG KHUYẾN NGHỊ THÔNG MINH — KIỂM THỬ ĐẠI DIỆN ĐỦ 4 MÙA TẬP TEST 2025")
+print("="*75)
 
 for i, case in enumerate(cases, 1):
     rec = case['Khuyến nghị']
-    print(f"\n{'─'*65}")
-    print(f"Case {i}: {case['Thời điểm']}  |  AQI thực tế={case['AQI thực tế']}  |  AQI dự báo={case['AQI dự báo']}")
-    print(f"  Mức độ    : {case['Mức độ']}  |  Mùa: {case['Mùa']}  |  Khung giờ: {case['Thời điểm ctx']}")
-    print(f"\n  👥 KHUYẾN NGHỊ THEO NHÓM:")
+    print(f"\n{'─'*75}")
+    print(f"Case {i}: [{case['Mùa']}] {case['Thời điểm']} ({case['Thứ']}) |  AQI thực tế={case['AQI thực tế']}  |  AQI dự báo={case['AQI dự báo']}")
+    print(f"  Mức độ dự báo   : {case['Mức độ']}  |  Khung giờ ngữ cảnh: {case['Thời điểm ctx']}")
+    print(f"  ℹ️  Nguồn bốc dữ liệu đầu vào: {case['Nguồn']}")
+    print(f"  🌡️  [1h Trước] Nhiệt độ: {case['Nhiệt độ']:.1f}°C  |  Độ ẩm: {case['Độ ẩm']:.0f}%  |  Gió: {case['Gió']:.1f} m/s")
+    print(f"  🏭  [1h Trước] PM2.5: {case['PM2.5']}  |  PM10: {case['PM10']}")
+    print(f"\n  👥 KHUYẾN NGHỊ THEO NHÓM ĐỐI TƯỢNG:")
     print(f"     • Trẻ em           : {rec['Trẻ em']}")
     print(f"     • Người già        : {rec['Người già']}")
     print(f"     • Bệnh hô hấp      : {rec['Bệnh hô hấp']}")
     print(f"     • Người khỏe mạnh  : {rec['Người khỏe mạnh']}")
-    print(f"\n  💡 KHUYẾN NGHỊ THÔNG MINH (CONTEXT-AWARE):")
+    print(f"\n  💡 KHUYẾN NGHỊ NGỮ CẢNH THÔNG MINH (CONTEXT-AWARE):")
     for tip in case['Context']:
         print(f"     → {tip}")
 
