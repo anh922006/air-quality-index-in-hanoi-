@@ -152,24 +152,24 @@ AQI_RULES = {
     },
     'Moderate': {
         'range': (51, 100),
-        'Trẻ em':          '⚠️ Hạn chế vận động mạnh',
-        'Người già':       '⚠️ Tránh vận động mạnh',
-        'Bệnh hô hấp':     '⚠️ Theo dõi triệu chứng',
+        'Trẻ em':          '✅ Hoạt động bình thường',
+        'Người già':       '✅ Hoạt động bình thường',
+        'Bệnh hô hấp':     '🌤️ Theo dõi sức khỏe',
         'Người khỏe mạnh': '✅ Hoạt động bình thường'
     },
     'Unhealthy for sensitive groups': {
         'range': (101, 150),
-        'Trẻ em':          '🔶 Đeo khẩu trang khi ra ngoài',
-        'Người già':       '🔶 Đeo khẩu trang N95',
-        'Bệnh hô hấp':     '🔴 Tránh ra ngoài',
-        'Người khỏe mạnh': '⚠️ Hạn chế vận động mạnh ngoài trời'
+        'Trẻ em':          '🔶 Hạn chế hoạt động ngoài trời lâu',
+        'Người già':       '🔶 Đeo khẩu trang khi ra ngoài',
+        'Bệnh hô hấp':     '🔴 Hạn chế ra ngoài tuyệt đối',
+        'Người khỏe mạnh': '🌤️ Đeo khẩu trang khi đi đường'
     },
     'Unhealthy': {
         'range': (151, 200),
         'Trẻ em':          '🔴 Không nên ra ngoài',
         'Người già':       '🔴 Ở trong nhà',
-        'Bệnh hô hấp':     '🔴 Ở trong nhà hoàn toàn',
-        'Người khỏe mạnh': '🔶 Đeo N95 nếu bắt buộc ra ngoài'
+        'Bệnh hô hấp':     '🚨 Ở trong nhà hoàn toàn',
+        'Người khỏe mạnh': '🔶 Đeo khẩu trang N95 khi ra ngoài'
     },
     'Very Unhealthy': {
         'range': (201, 300),
@@ -180,10 +180,10 @@ AQI_RULES = {
     },
     'Hazardous': {
         'range': (301, 999),
-        'Trẻ em':          '🚨 Cấm ra ngoài',
-        'Người già':       '🚨 Liên hệ y tế ngay',
-        'Bệnh hô hấp':     '🚨 Cần hỗ trợ y tế khẩn cấp',
-        'Người khỏe mạnh': '🚨 Không ra ngoài'
+        'Trẻ em':          '🚫 Nghiêm cấm ra ngoài',
+        'Người già':       '🚫 Liên hệ y tế nếu mệt mỏi',
+        'Bệnh hô hấp':     '🚫 Cần hỗ trợ y tế khẩn cấp',
+        'Người khỏe mạnh': '🚨 Ở trong nhà, đóng kín cửa sổ'
     }
 }
 
@@ -405,4 +405,4 @@ for cat, info in AQI_RULES.items():
         'Bệnh hô hấp': info['Bệnh hô hấp'],
         'Khỏe mạnh':   info['Người khỏe mạnh'],
     })
-pd.DataFrame(rec_table).to_csv('recommendation_table.csv', index=False, encoding='utf-8-sig')
+pd.DataFrame(rec_table).to_csv('library_framework/recommendation_table.csv', index=False, encoding='utf-8-sig')
