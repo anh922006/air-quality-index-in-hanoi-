@@ -472,12 +472,11 @@ with tab3:
     col_metric1, col_metric2 = st.columns(2)
     with col_metric1:
         st.subheader("1. Phân hệ Dự báo Chỉ số Liên tục (Regression)")
-        # Số liệu chính xác từ file Best_model.ipynb
         df_reg_summary = pd.DataFrame({
             'Thuật toán học máy': ['XGBoost Regression (BEST)', 'Random Forest', 'Linear Regression'],
-            'R² Score (Test)': [0.7850, 0.7816, 0.7769],
-            'RMSE': [24.66, 24.85, 25.12],
-            'MAE': [16.43, 16.60, 17.17]
+            'R² Score (Test)': [0.7878, 0.7834, 0.7771],
+            'RMSE': [24.50, 24.75, 25.11],
+            'MAE': [16.39, 16.60, 17.14]
         })
         st.dataframe(df_reg_summary, use_container_width=True, hide_index=True)
         
