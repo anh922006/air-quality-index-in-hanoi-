@@ -563,9 +563,9 @@ with tab3:
     - Linear Regression Gap nhỏ nhất (0.045) nhưng Test R² thấp nhất — cho thấy quan hệ AQI và lag features có tính phi tuyến mạnh
     """)
 
-# ---------------------------------------------------------
+## =========================================================
 # TAB 4: PHÂN CỤM & PCA 
-# ---------------------------------------------------------
+# =========================================================
 with tab4:
     st.header("🧩 Phân Tích Cấu Trúc Không Gian Phân Cụm & Thu Gọn Chiều PCA")
     
@@ -583,7 +583,32 @@ with tab4:
         - **Biplot:** Trực quan hóa Biplot chiếu lên trục hệ tọa độ PC1 vs PC2 chứng minh ranh giới tách biệt cấu trúc dữ liệu rất rõ rệt giữa mùa Đông và mùa Hạ.
         """)
         
-    st.markdown("#### 🎯 Bản đồ phân bố không gian Biplot PCA trực quan hóa theo Mùa khí hậu")
+    st.divider()
+    st.markdown("#### 🎯 Trực quan hóa kết quả phân tích giảm chiều dữ liệu từ Notebook")
+    
+    col_pca_img1, col_pca_img2 = st.columns(2)
+    with col_pca_img1:
+        try:
+            img_scree = Image.open('charts/pca_scree_plot.png')
+            st.image(img_scree, caption='Đồ thị Scree Plot giải thích phương sai tích lũy', use_container_width=True)
+        except FileNotFoundError:
+            st.warning("Chưa tìm thấy ảnh pca_scree_plot.png trong thư mục charts!")
+
+    with col_pca_img2:
+        try:
+            img_loading = Image.open('charts/pca_heatmap.png')
+            st.image(img_loading, caption='Ma trận trọng số Loading Matrix của các biến', use_container_width=True)
+        except FileNotFoundError:
+            st.warning("Chưa tìm thấy ảnh pca_heatmap.png trong thư mục charts!")
+
+    st.markdown("#### 🎯 Không gian phân hóa hệ tọa độ Biplot PCA")
+    try:
+        img_biplot = Image.open('charts/pca_biplot.png')
+        st.image(img_biplot, caption='Biplot phân tách đặc trưng môi trường thực tế', use_container_width=True)
+    except FileNotFoundError:
+        st.warning("Chưa tìm thấy ảnh pca_biplot.png trong thư mục charts!")
+
+    st.markdown("#### 🎯 Bản đồ phân bố không gian Biplot PCA trực quan hóa theo Mùa khí hậu (Mô phỏng tương tác)")
     
     np.random.seed(10)
     sample_points = 250
@@ -603,13 +628,13 @@ with tab4:
     fig_pca_scatter = px.scatter(
         df_pca_plot, x='Thành phần chính PC1', y='Thành phần chính PC2', color='Chu kỳ Mùa',
         color_discrete_map={'Mùa Xuân':'#2ECC71', 'Mùa Hạ':'#F1C40F', 'Mùa Đông':'#E74C3C'},
-        opacity=0.75, title="Không gian giảm chiều PC1 vs PC2 (Phân tách rõ đặc trưng môi trường theo chu kỳ mùa)"
+        opacity=0.75, title="Không gian giảm chiều PC1 vs PC2 (Mô phỏng động trên giao diện Web)"
     )
     st.plotly_chart(fig_pca_scatter, use_container_width=True)
  
-# ---------------------------------------------------------
-# TAB 5: MINH BẠCH GIẢI THÍCH MÔ HÌNH & TÍNH CÔNG BẰNG (Model Interpretation & Ethical Bias)
-# ---------------------------------------------------------
+# =========================================================
+# TAB 5: MINH BẠCH GIẢI THÍCH MÔ HÌNH & TÍNH CÔNG BẰNG
+# =========================================================
 with tab5:
     st.header("🔍 Tính Minh Bạch Thuật Toán Kỹ Thuật & Đánh Giá Sai Số Công Bằng")
     
@@ -635,11 +660,28 @@ with tab5:
         - **Sai số phân hóa theo dải Nhiệt Độ:** Mô hình đạt độ ổn định và độ chính xác cao nhất ở biên độ nhiệt độ từ **20°C đến 30°C**.
         """)
  
-# ---------------------------------------------------------
-# TAB 6: ĐỘNG LỰC HỌC CHUỖI THỜI GIAN (Dựa trên Time_Series_Forecast.ipynb)
-# ---------------------------------------------------------
+    st.divider()
+    st.markdown("#### ⚖️ Biểu đồ kết quả Phân tích tính công bằng và lỗi thiên lệch từ Notebook")
+    try:
+        img_bias = Image.open('charts/prophet_bias_analysis.png')
+        st.image(img_bias, caption='Đánh giá phân hóa sai số hệ thống RMSE đa chiều (Ethical Bias Analysis)', use_container_width=True)
+    except FileNotFoundError:
+        st.warning("Chưa tìm thấy ảnh prophet_bias_analysis.png trong thư mục charts!")
+
+# =========================================================
+# TAB 6: ĐỘNG LỰC HỌC CHUỖI THỜI GIAN
+# =========================================================
 with tab6:
     st.header("⏳ Phân Hệ Dự Báo Động Lực Học Chuỗi Thời Gian (Prophet Pipeline)")
+    
+    st.markdown("#### 🎯 Kết quả phân tích mô hình hóa chuỗi thời gian thực tế từ Prophet")
+    try:
+        img_forecast = Image.open('charts/prophet_forecast.png')
+        st.image(img_forecast, caption='Đường xu hướng dự báo thực tế sinh từ file Prophet Pipeline', use_container_width=True)
+    except FileNotFoundError:
+        st.warning("Chưa tìm thấy ảnh prophet_forecast.png trong thư mục charts!")
+
+    st.divider()
     st.markdown("Đường xu hướng biến thiên chỉ số chất lượng không khí AQI liên tục được dự báo cho **48 giờ tiếp theo**:")
     
     future_timeline = pd.date_range(start='2026-05-19 00:00', periods=48, freq='h')
