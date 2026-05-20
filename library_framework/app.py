@@ -29,41 +29,166 @@ AQI_COLORS = {
 }
 
 # Thứ tự 19 đặc trưng đầu vào lúc huấn luyện mô hình .pkl
-FEATURES = [
+FEATURES_1 = [
     'co', 'no2', 'o3', 'pm10', 'pm25', 'so2',
     'clouds', 'precipitation', 'pressure',
     'relative_humidity', 'temperature', 'uv_index', 'wind_speed',
     'month', 'hour', 'day_of_week', 'is_weekend', 'is_rush_hour', 'season'
 ]
 
+FEATURES = [
+    # WEATHER
+    'clouds_lag_1', 'precipitation_lag_1', 'pressure_lag_1', 
+    'relative_humidity_lag_1', 'temperature_lag_1', 'uv_index_lag_1', 'wind_speed_lag_1',
+
+    # TIME
+    'month', 'hour', 'day_of_week', 'is_weekend', 'is_rush_hour', 'season',
+
+    # AQI LAGS
+    'aqi_lag_1', 'aqi_lag_2', 'aqi_lag_3', 'aqi_lag_6', 'aqi_lag_12', 'aqi_lag_24', 'aqi_lag_48', 'aqi_lag_168',
+
+    # AQI ROLLING & EMA & TREND
+    'aqi_roll_6', 'aqi_roll_12', 'aqi_roll_24', 'aqi_roll_48',
+    'aqi_ema_12', 'aqi_ema_24',
+    'aqi_trend_1', 'aqi_trend_6', 'aqi_trend_24',
+
+    # PM2.5 & PM10 LAGS
+    'pm25_lag_1', 'pm25_lag_6', 'pm25_lag_24', 'pm25_roll_24', 'pm25_ema_24',
+    'pm10_lag_1'
+]
+
+# ══════════════════════════════════════════════════════
+# LOAD TIME-SERIES DATA
+# ══════════════════════════════════════════════════════
+
+@st.cache_data
+def load_timeseries_data():
+    df = pd.read_csv("clean/hanoi_aqi_cleaned.csv")
+    df.columns = df.columns.str.strip().str.lower()
+    df['local_time'] = pd.to_datetime(df['local_time'])
+    df = df.sort_values('local_time').reset_index(drop=True)
+
+    # =========================================
+    # TIME FEATURES
+    # =========================================
+    df['year'] = df['local_time'].dt.year
+    df['month'] = df['local_time'].dt.month
+    df['hour'] = df['local_time'].dt.hour
+    df['day_of_week'] = df['local_time'].dt.dayofweek
+
+    df['is_weekend'] = (
+        df['day_of_week'] >= 5
+    ).astype(int)
+
+    df['is_rush_hour'] = (
+        df['hour'].isin([6,7,8,9,17,18,19,20])
+    ).astype(int)
+
+    # =========================================
+    # SEASON
+    # =========================================
+    def get_season(month):
+        if month in [12,1,2]:
+            return 0
+        elif month in [3,4,5]:
+            return 1
+        elif month in [6,7,8]:
+            return 2
+        return 3
+
+    df['season'] = df['month'].apply(get_season)
+
+    # ---------- LAGS ----------
+    df['aqi_lag_1']   = df['aqi'].shift(1)
+    df['aqi_lag_2']   = df['aqi'].shift(2)
+    df['aqi_lag_3']   = df['aqi'].shift(3)
+
+
+    df['aqi_lag_6']   = df['aqi'].shift(6)
+    df['aqi_lag_12']  = df['aqi'].shift(12)
+
+
+    df['aqi_lag_24']  = df['aqi'].shift(24)
+    df['aqi_lag_48']  = df['aqi'].shift(48)
+
+
+    df['aqi_lag_168'] = df['aqi'].shift(168)
+
+
+    # --- AQI ROLLING & EMA ---
+    df['aqi_roll_6']  = df['aqi'].shift(1).rolling(6).mean()
+    df['aqi_roll_12'] = df['aqi'].shift(1).rolling(12).mean()
+    df['aqi_roll_24'] = df['aqi'].shift(1).rolling(24).mean()
+    df['aqi_roll_48'] = df['aqi'].shift(1).rolling(48).mean()
+    df['aqi_ema_12']  = df['aqi'].shift(1).ewm(span=12).mean()
+    df['aqi_ema_24']  = df['aqi'].shift(1).ewm(span=24).mean()
+
+
+    # --- AQI TREND ---
+    df['aqi_trend_1']  = df['aqi_lag_1'] - df['aqi_lag_2']
+    df['aqi_trend_6']  = df['aqi_lag_1'] - df['aqi_lag_6']
+    df['aqi_trend_24'] = df['aqi_lag_1'] - df['aqi_lag_24']
+
+
+    #  PM2.5 FEATURES 
+    df['pm25_lag_1'] = df['pm25'].shift(1)
+    df['pm25_lag_6'] = df['pm25'].shift(6)
+    df['pm25_lag_24'] = df['pm25'].shift(24)
+
+    df['pm25_roll_24'] = df['pm25'].shift(1).rolling(24).mean()
+    df['pm25_ema_24']  = df['pm25'].shift(1).ewm(span=24).mean()
+
+    df['pm10_lag_1'] = df['pm10'].shift(1)
+
+    WEATHER_LAG_COLS = [
+        'clouds',
+        'precipitation',
+        'pressure',
+        'relative_humidity',
+        'temperature',
+        'uv_index',
+        'wind_speed'
+    ]
+
+    for col in WEATHER_LAG_COLS:
+        df[f'{col}_lag_1'] = (
+            df[col].shift(1)
+        )
+
+    df = df.dropna().copy()
+    return df
+# LOAD DATAFRAME
+df = load_timeseries_data()
+
 # ══════════════════════════════════════════════════════
 # 2. KHỞI TẠO NẠP TÀI NGUYÊN HỆ THỐNG
 # ══════════════════════════════════════════════════════
 @st.cache_resource
 def load_best_pkl_model():
-    """Nạp file mô hình hồi quy .pkl"""
     try:
-        return joblib.load('best_model.pkl')
+        model = joblib.load("library_framework/best_model.pkl")
+        print("LOAD SUCCESS: best_model.pkl")
+        return model
     except Exception as e:
-        try:
-            return joblib.load('best_model_regression.pkl')
-        except Exception as ex:
-            return None
+        print("ERROR best_model.pkl:", e)
+        return None
+        
 
 @st.cache_data
 def load_recommendation_csv():
-    """Nạp bảng luật khuyến nghị y tế"""
     try:
-        return pd.read_csv('recommendation_table.csv')
-    except Exception as e:
-        data = {
-            'Danh mục': ['Good', 'Moderate', 'Unhealthy for sensitive groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous'],
-            'Trẻ em': ['✅ Hoạt động bình thường', '⚠️ Hạn chế vận động mạnh', '🔶 Đeo khẩu trang khi ra ngoài', '🔴 Không nên ra ngoài', '🚨 Ở trong nhà hoàn toàn', '🚨 Cấm ra ngoài'],
-            'Người già': ['✅ Hoạt động bình thường', '⚠️ Tránh vận động mạnh', '🔶 Đeo khẩu trang N95', '🔴 Ở trong nhà', '🚨 Ở trong nhà hoàn toàn', '🚨 Liên hệ y tế ngay'],
-            'Bệnh hô hấp': ['✅ Hoạt động bình thường', '⚠️ Theo dõi triệu chứng', '🔴 Tránh ra ngoài', '🔴 Ở trong nhà hoàn toàn', '🚨 Chuẩn bị thuốc cấp cứu', '🚨 Cần hỗ trợ y tế khẩn cấp'],
-            'Khỏe mạnh': ['✅ Hoạt động bình thường', '✅ Hoạt động bình thường', '⚠️ Hạn chế vận động ngoài trời', '🔶 Đeo N95 nếu ra ngoài', '🔴 Tránh mọi hoạt động ngoài trời', '🚨 Không ra ngoài']
-        }
-        return pd.DataFrame(data)
+        return pd.read_csv('library_framework/recommendation_table.csv')
+    except:
+        return pd.DataFrame()
+
+@st.cache_data
+def load_context_advice():
+    try:
+        return pd.read_csv('library_framework/context_advice_rules.csv')
+    except:
+        return pd.DataFrame()
+
+df_context = load_context_advice()
 
 model_regression = load_best_pkl_model()
 df_rec = load_recommendation_csv()
@@ -105,6 +230,46 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🔍 Diễn Giải & Tính Công Bằng",
     "⏳ Dự Báo Chuỗi Thời Gian"
 ])
+
+def get_context_advice_from_csv(aqi_value, time_ctx, season_name, level_label):
+    if df_context.empty:
+        return []
+    
+    advice_list = []
+    
+    for _, row in df_context.iterrows():
+        loai = str(row['Loại ngữ cảnh']).strip()
+        dk   = str(row['Điều kiện ngữ cảnh']).strip()
+        nguong = str(row['Ngưỡng AQI']).strip()
+        loi_khuyen = str(row['Lời khuyên hành động (Context-Aware Advice)']).strip()
+        
+        match = False
+        
+        # Lọc theo khung giờ
+        if loai == 'Khung giờ' and time_ctx in dk:
+            if '> 100' in nguong and aqi_value > 100:   match = True
+            elif '> 50' in nguong and aqi_value > 50:   match = True
+            elif '<= 100' in nguong and aqi_value <= 100: match = True
+            elif '<= 50' in nguong and aqi_value <= 50:  match = True
+            elif '<= 150' in nguong and aqi_value <= 150: match = True
+            elif '> 150' in nguong and aqi_value > 150:  match = True
+            elif 'Mức tốt' in nguong and aqi_value <= 100: match = True
+
+        # Lọc theo mùa
+        elif loai == 'Mùa khí hậu' and season_name in dk:
+            if '> 100' in nguong and aqi_value > 100:   match = True
+            elif '> 150' in nguong and aqi_value > 150:  match = True
+            elif '<= 100' in nguong and aqi_value <= 100: match = True
+            elif 'Mọi dải' in nguong:                    match = True
+
+        # Lọc theo cấp độ AQI
+        elif loai == 'Cấp độ AQI' and level_label.lower() in dk.lower():
+            match = True
+
+        if match:
+            advice_list.append(loi_khuyen)
+    
+    return advice_list
 
 # ---------------------------------------------------------
 # TAB 1: PHÂN TÍCH KHÁM PHÁ (Trùng khớp 100% EDA.ipynb)
@@ -164,82 +329,139 @@ with tab1:
 # TAB 2: DỰ BÁO REAL-TIME MÔ HÌNH REGRESSION & KHUYẾN NGHỊ (Forecasting.py)
 # ---------------------------------------------------------
 with tab2:
-    st.header("🔮 Phân Hệ Dự Báo Real-Time Từ Trọng Số Mô Hình (.pkl)")
-    st.markdown("Nhập các thông số đo đạc khí tượng và nồng độ chất ô nhiễm hiện tại để chạy mô hình dự báo:")
-    
-    with st.form("form_prediction_pkl"):
-        f_col1, f_col2, f_col3 = st.columns(3)
-        user_inputs = {}
-        
-        with f_col1:
-            st.markdown("##### 🌡️ Các Chỉ Số Khí Tượng Khí Hậu")
-            user_inputs['temperature'] = st.number_input("Nhiệt độ môi trường (°C)", value=22.5, min_value=-5.0, max_value=50.0, step=0.1)
-            user_inputs['relative_humidity'] = st.number_input("Độ ẩm tương đối (%)", value=82.0, min_value=0.0, max_value=100.0, step=1.0)
-            user_inputs['wind_speed'] = st.number_input("Tốc độ gió lưu thông (m/s)", value=1.5, min_value=0.0, max_value=30.0, step=0.1)
-            user_inputs['pressure'] = st.number_input("Áp suất khí quyển nền (hPa)", value=1013.0, min_value=900.0, max_value=1100.0, step=1.0)
-            user_inputs['clouds'] = st.number_input("Mật độ che phủ của mây (%)", value=75, min_value=0, max_value=100, step=1)
-            user_inputs['precipitation'] = st.number_input("Lượng mưa tích lũy (mm)", value=0.0, min_value=0.0, max_value=500.0, step=0.1)
-            user_inputs['uv_index'] = st.number_input("Chỉ số cường độ bức xạ UV", value=1.2, min_value=0.0, max_value=15.0, step=0.1)
-            
-        with f_col2:
-            st.markdown("##### 🏭 Nồng Độ Các Khí Thải Ô Nhiễm")
-            user_inputs['pm25'] = st.number_input("Nồng độ hạt bụi mịn PM2.5 (µg/m³)", value=54.2, min_value=0.0, max_value=1000.0, step=0.1)
-            user_inputs['pm10'] = st.number_input("Nồng độ hạt bụi thô PM10 (µg/m³)", value=76.8, min_value=0.0, max_value=1000.0, step=0.1)
-            user_inputs['co'] = st.number_input("Hàm lượng khí CO độc hại (µg/m³)", value=480.0, min_value=0.0, max_value=10000.0, step=10.0)
-            user_inputs['no2'] = st.number_input("Nồng độ khí NO2 giao thông (µg/m³)", value=35.1, min_value=0.0, max_value=1000.0, step=0.1)
-            user_inputs['o3'] = st.number_input("Nồng độ khí O3 tầng mặt (µg/m³)", value=22.4, min_value=0.0, max_value=1000.0, step=0.1)
-            user_inputs['so2'] = st.number_input("Nồng độ khí SO2 công nghiệp (µg/m³)", value=14.3, min_value=0.0, max_value=1000.0, step=0.1)
-            
-        with f_col3:
-            st.markdown("##### ⏰ Yếu Tố Khung Thời Gian")
-            user_inputs['hour'] = st.slider("Khung giờ đo đạc hiện tại", 0, 23, 8)
-            user_inputs['month'] = st.slider("Tháng trong năm lịch sử", 1, 12, 12)
-            user_inputs['season'] = st.selectbox("Mùa hiện hành", options=[1, 2, 3, 4], format_func=lambda x: {1:'Xuân', 2:'Hạ', 3:'Thu', 4:'Đông'}[x], index=3)
-            user_inputs['day_of_week'] = st.slider("Ngày trong tuần (0: Thứ 2 → 6: Chủ Nhật)", 0, 6, 0)
-            
-            user_inputs['is_weekend'] = 1 if user_inputs['day_of_week'] >= 5 else 0
-            user_inputs['is_rush_hour'] = 1 if user_inputs['hour'] in [7, 8, 17, 18, 19] else 0
+    st.header("🔮 Dự Báo AQI Theo Chuỗi Thời Gian")
+    st.markdown("""
+    Hệ thống sử dụng:
+    - XGBoost Regression
+    - Lag Features
+    - Rolling Mean
+    - EMA
+    """)
 
-        btn_predict = st.form_submit_button("🚀 KÍCH HOẠT MÔ HÌNH DỰ BÁO CHỈ SỐ AQI", use_container_width=True)
+    # CHỌN THỜI GIAN
+    c1, c2 = st.columns(2)
+    with c1:
+        selected_date = st.date_input("📅 Chọn ngày")
 
-    if btn_predict:
-        df_input_ordered = pd.DataFrame([user_inputs])[FEATURES]
-        
-        if model_regression is not None:
-            predicted_score = float(model_regression.predict(df_input_ordered)[0])
+    with c2:
+        selected_hour = st.slider("⏰ Chọn giờ", 0, 23, 8)
+
+    target_time = pd.to_datetime(
+        f"{selected_date} {selected_hour:02d}:00:00"
+    )
+
+    if st.button("🚀 DỰ BÁO AQI", use_container_width=True):
+        matched_row = df[
+            df['local_time'] == target_time
+        ]
+
+        # NẾU CÓ DỮ LIỆU THẬT
+        if not matched_row.empty:
+            st.success("✅ Tìm thấy dữ liệu lịch sử phù hợp")
+            input_features = matched_row[FEATURES].iloc[0].to_dict()
+            source_type = "Dữ liệu lịch sử thực"
+
+        # FALLBACK
         else:
-            predicted_score = float(user_inputs['pm25'] * 1.6 + user_inputs['pm10'] * 0.4 + (30 - user_inputs['temperature']) * 1.2)
-            if user_inputs['season'] == 4: predicted_score += 25
-            predicted_score = max(10.0, min(480.0, predicted_score))
-            
-        level_label, emoji, color_hex, text_color = get_aqi_level_details(predicted_score)
-        
-        st.session_state['predicted_aqi_continuous'] = predicted_score
-        st.session_state['predicted_aqi_category'] = level_label
-        
+            st.warning("⚠️ Không có dữ liệu đúng thời điểm — dùng trung bình lịch sử")
+
+            mask = (
+                (df['month'] == target_time.month)
+                &
+                (df['hour'] == selected_hour)
+            )
+
+            if mask.sum() == 0:
+                mask = df['month'] == target_time.month
+
+            input_features = (
+                df[mask][FEATURES]
+                .mean()
+                .to_dict()
+            )
+            source_type = "Dữ liệu trung bình lịch sử"
+
+        # =========================
+        # UPDATE TIME FEATURES
+        # =========================
+        input_features.update({
+            'month': target_time.month,
+            'hour': selected_hour,
+            'day_of_week': target_time.dayofweek,
+            'is_weekend': 1 if target_time.dayofweek >= 5 else 0,
+            'is_rush_hour': 1 if selected_hour in [
+                6,7,8,9,17,18,19,20
+            ] else 0,
+            'season':
+                0 if target_time.month in [12,1,2]
+                else 1 if target_time.month in [3,4,5]
+                else 2 if target_time.month in [6,7,8]
+                else 3
+        })
+
+        # MODEL INPUT
+        input_df = pd.DataFrame(
+            [input_features]
+        )[FEATURES]
+
+        # PREDICT
+        pred_aqi = float(
+            model_regression.predict(input_df)[0]
+        )
+
+        level_label, emoji, color_hex, text_color = \
+            get_aqi_level_details(pred_aqi)
+
+        # RESULT BOX
         st.markdown(f"""
-            <div style='background-color: {color_hex}; padding: 25px; border-radius: 14px; text-align: center; margin: 20px 0;'>
-                <h3 style='color: {text_color}; margin: 0; font-weight: normal;'>{emoji} CHỈ SỐ AQI DỰ BÁO LIÊN TỤC TỪ MÔ HÌNH: <b style='font-size: 32px;'>{predicted_score:.1f}</b></h3>
-                <h1 style='color: {text_color}; margin: 8px 0 0 0; font-size: 46px; font-weight: bold; letter-spacing: 1px;'>{level_label.upper()}</h1>
-            </div>
+        <div style="background-color:{color_hex};padding:25px;border-radius:16px;text-align:center;margin-top:20px;">
+        <h1 style="color:{text_color};font-size:60px;margin-bottom:0;">{pred_aqi:.1f}</h1>
+        <h2 style="color:{text_color};">{emoji} {level_label}</h2>
+        <p style="color:{text_color};">Nguồn dữ liệu: {source_type}</p>
+        </div>
         """, unsafe_allow_html=True)
 
-    st.divider()
-    st.subheader("💡 Khuyến Nghị Y Tế Tương Ứng Dự Trên Trạng Thái Không Khí")
-    
-    current_category = st.session_state.get('predicted_aqi_category', None)
-    if current_category:
-        st.success(f"Hệ thống tự động tra cứu luật y tế bảo vệ sức khỏe cho ngưỡng: **{current_category}**")
-        filtered_row = df_rec[df_rec['Danh mục'] == current_category]
-        
+        st.subheader("🌦️ Điều kiện môi trường")
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric(
+            "PM2.5",
+            f"{input_features['pm25_lag_1']:.1f}"
+        )
+        m2.metric(
+            "PM10",
+            f"{input_features['pm10_lag_1']:.1f}"
+        )
+        m3.metric(
+            "Nhiệt độ",
+            f"{input_features['temperature_lag_1']:.1f}°C"
+        )
+        m4.metric(
+            "Độ ẩm",
+            f"{input_features['relative_humidity_lag_1']:.0f}%"
+        )
+
+        st.subheader("💡 Khuyến nghị sức khỏe")
+        filtered_row = df_rec[
+            df_rec['Danh mục'] == level_label
+        ]
         if not filtered_row.empty:
-            rec_c1, rec_c2, rec_c3, rec_c4 = st.columns(4)
-            rec_c1.info(f"👦 **Trẻ Em & Học Sinh**\n\n{filtered_row['Trẻ em'].values[0]}")
-            rec_c2.warning(f"👴 **Người Cao Tuổi**\n\n{filtered_row['Người già'].values[0]}")
-            rec_c3.error(f"🫁 **Nhóm Bệnh Hô Hấp**\n\n{filtered_row['Bệnh hô hấp'].values[0]}")
-            rec_c4.success(f"🏃 **Người Khỏe Mạnh**\n\n{filtered_row['Khỏe mạnh'].values[0]}")
-    else:
-        st.info("👉 Vui lòng nhấn nút 'KÍCH HOẠT MÔ HÌNH DỰ BÁO CHỈ SỐ AQI' ở trên để xem hệ thống khuyến nghị hành vi thông minh.")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.info(f"👦 Trẻ em\n\n{filtered_row['Trẻ em'].values[0]}")
+            c2.warning( f"👴 Người già\n\n{filtered_row['Người già'].values[0]}")
+            c3.error(f"🫁 Bệnh hô hấp\n\n{filtered_row['Bệnh hô hấp'].values[0]}")
+            c4.success(f"🏃 Người khỏe mạnh\n\n{filtered_row['Khỏe mạnh'].values[0]}")
+        
+        ctx_tips = get_context_advice_from_csv(
+            pred_aqi, 
+            'rush_morning' if input_features['is_rush_hour'] and not input_features['is_weekend'] else 'morning',
+            {0:'Đông', 1:'Xuân', 2:'Hè', 3:'Thu'}[int(input_features['season'])],
+            level_label
+        )
+
+        if ctx_tips:
+            st.subheader("💡 Khuyến nghị thông minh theo ngữ cảnh")
+            for tip in ctx_tips:
+                st.info(f"→ {tip}")
 
 # ---------------------------------------------------------
 # TAB 3: BÁO CÁO HIỆU NĂNG THUẬT TOÁN (Trùng khớp Best_model & Classification)
