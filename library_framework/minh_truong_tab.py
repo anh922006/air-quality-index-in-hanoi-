@@ -411,17 +411,17 @@ def render_classification_tab():
     with c1:
         img_shown = show_chart_img('clf3_confusion_rf.png', 'Confusion Matrix — Random Forest')
         if not img_shown:
-            st.info("Đặt file `clf3_confusion_rf.png` vào thư mục `charts_eda/` để hiển thị")
+            st.info("Đặt file `clf3_confusion_rf.png` vào thư mục `charts` để hiển thị")
     with c2:
         img_shown = show_chart_img('clf3_confusion_xgb.png', 'Confusion Matrix — XGBoost')
         if not img_shown:
-            st.info("Đặt file `clf3_confusion_xgb.png` vào thư mục `charts_eda/` để hiển thị")
+            st.info("Đặt file `clf3_confusion_xgb.png` vào thư mục `charts` để hiển thị")
 
     # Fallback: vẽ trực tiếp nếu không có ảnh
     if not os.path.exists(os.path.join(CHART_DIR,'clf3_confusion_rf.png')):
         img_shown_combined = show_chart_img('clf3_confusion_matrices.png', 'Confusion Matrix — RF vs XGB')
         if not img_shown_combined:
-            st.info("💡 Chạy `Classification.ipynb` để sinh ảnh Confusion Matrix, sau đó đặt vào `charts_eda/`")
+            st.info("💡 Chạy `Classification.ipynb` để sinh ảnh Confusion Matrix, sau đó đặt vào `charts`")
 
     st.divider()
 
