@@ -563,7 +563,7 @@ with tab3:
     - Linear Regression Gap nhỏ nhất (0.045) nhưng Test R² thấp nhất — cho thấy quan hệ AQI và lag features có tính phi tuyến mạnh
     """)
 
-## =========================================================
+# =========================================================
 # TAB 4: PHÂN CỤM & PCA 
 # =========================================================
 with tab4:
@@ -577,7 +577,7 @@ with tab4:
         - **Kết quả:** Đồ thị tổng bình phương khoảng cách nội cụm xác định số lượng cụm lý tưởng là **K = 4 hoặc K = 5**.
         """)
     with cluster_info_col2:
-        st.subheader("📌 Phân Tích Thành Phần Chính Giảm Chiều (PCA)")
+        st.subheader("📌 Phân Tích Thành Component Chính Giảm Chiều (PCA)")
         st.markdown("""
         - **Cơ cấu Trọng Số:** Thành phần chính thứ nhất (PC1) chịu tác động mạnh nhất bởi đặc trưng nồng độ hạt bụi mịn PM2.5 và Nhiệt độ phòng.
         - **Biplot:** Trực quan hóa Biplot chiếu lên trục hệ tọa độ PC1 vs PC2 chứng minh ranh giới tách biệt cấu trúc dữ liệu rất rõ rệt giữa mùa Đông và mùa Hạ.
@@ -586,30 +586,34 @@ with tab4:
     st.divider()
     st.markdown("#### 🎯 Trực quan hóa kết quả phân tích giảm chiều dữ liệu từ Notebook")
     
+    # Sửa lỗi NameError bằng cách import cục bộ an toàn tại chỗ
+    from PIL import Image
+    
     col_pca_img1, col_pca_img2 = st.columns(2)
     with col_pca_img1:
         try:
             img_scree = Image.open('charts/pca_scree_plot.png')
             st.image(img_scree, caption='Đồ thị Scree Plot giải thích phương sai tích lũy', use_container_width=True)
-        except FileNotFoundError:
+        except Exception:
             st.warning("Chưa tìm thấy ảnh pca_scree_plot.png trong thư mục charts!")
 
     with col_pca_img2:
         try:
             img_loading = Image.open('charts/pca_heatmap.png')
             st.image(img_loading, caption='Ma trận trọng số Loading Matrix của các biến', use_container_width=True)
-        except FileNotFoundError:
+        except Exception:
             st.warning("Chưa tìm thấy ảnh pca_heatmap.png trong thư mục charts!")
 
     st.markdown("#### 🎯 Không gian phân hóa hệ tọa độ Biplot PCA")
     try:
         img_biplot = Image.open('charts/pca_biplot.png')
         st.image(img_biplot, caption='Biplot phân tách đặc trưng môi trường thực tế', use_container_width=True)
-    except FileNotFoundError:
+    except Exception:
         st.warning("Chưa tìm thấy ảnh pca_biplot.png trong thư mục charts!")
 
     st.markdown("#### 🎯 Bản đồ phân bố không gian Biplot PCA trực quan hóa theo Mùa khí hậu (Mô phỏng tương tác)")
     
+    import plotly.express as px
     np.random.seed(10)
     sample_points = 250
     pc1_s1 = np.random.normal(loc=-1.2, scale=0.8, size=sample_points)
@@ -642,7 +646,7 @@ with tab5:
     with interpret_col1:
         st.subheader("📊 Diễn Giải Trọng Số Toàn Cục Bằng Giá Trị SHAP")
         st.markdown("""
-        - **Tác động toàn cục:** Chuỗi giá trị khẳng định **PM2.5** là biến đặc trưng có trọng số chi phối mạnh nhất, quyết định quyết định đầu ra của mô hình.
+        - **Tác động toàn cục:** Chuỗi giá trị khẳng định **PM2.5** là biến đặc trưng có trọng số chi phối mạnh nhất, quyết định đầu ra của mô hình.
         - **Bóc tách cục bộ:** Khi nồng độ bụi mịn PM2.5 tăng vượt ngưỡng an toàn khí quyển, giá trị SHAP mang dấu dương đẩy mạnh kết quả dự báo vọt lên dải ô nhiễm nghiêm trọng.
         """)
         
@@ -665,7 +669,7 @@ with tab5:
     try:
         img_bias = Image.open('charts/prophet_bias_analysis.png')
         st.image(img_bias, caption='Đánh giá phân hóa sai số hệ thống RMSE đa chiều (Ethical Bias Analysis)', use_container_width=True)
-    except FileNotFoundError:
+    except Exception:
         st.warning("Chưa tìm thấy ảnh prophet_bias_analysis.png trong thư mục charts!")
 
 # =========================================================
@@ -678,12 +682,13 @@ with tab6:
     try:
         img_forecast = Image.open('charts/prophet_forecast.png')
         st.image(img_forecast, caption='Đường xu hướng dự báo thực tế sinh từ file Prophet Pipeline', use_container_width=True)
-    except FileNotFoundError:
+    except Exception:
         st.warning("Chưa tìm thấy ảnh prophet_forecast.png trong thư mục charts!")
 
     st.divider()
     st.markdown("Đường xu hướng biến thiên chỉ số chất lượng không khí AQI liên tục được dự báo cho **48 giờ tiếp theo**:")
     
+    import plotly.graph_objects as go
     future_timeline = pd.date_range(start='2026-05-19 00:00', periods=48, freq='h')
     simulated_trend = [115 + 18 * np.sin(i / 3.5) + (i * 0.15) for i in range(48)]
     lower_interval = [val - 14 for val in simulated_trend]
