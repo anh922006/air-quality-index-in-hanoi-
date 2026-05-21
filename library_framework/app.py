@@ -570,13 +570,24 @@ with tab2:
             
             is_rush = 1 if case_hour in [6, 7, 8, 9, 17, 18, 19, 20] else 0
             is_wkend = 1 if case['weekday'] in ['Thứ Bảy', 'Chủ Nhật'] else 0
-            
-            time_ctx = 'rush_morning' if (is_rush and not is_wkend) else 'morning'
+
+            if is_rush and not is_wkend:
+                time_ctx = 'rush_morning' if 5 <= case_hour <= 10 else 'rush_evening'
+            elif 5 <= case_hour <= 11:
+                time_ctx = 'morning'
+            elif 12 <= case_hour <= 17:
+                time_ctx = 'afternoon'
+            elif 18 <= case_hour <= 22:
+                time_ctx = 'evening'
+            else:
+                time_ctx = 'night'
+
+            season_ctx_name = 'Hè' if case['season'] == 'Hạ' else case['season']
 
             case_ctx_tips = get_context_advice_from_csv(
                 case['aqi_pred'],
                 time_ctx,
-                case['season'], 
+                season_ctx_name, 
                 case['level']   
             )
 
