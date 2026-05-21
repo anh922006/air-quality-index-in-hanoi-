@@ -74,10 +74,6 @@ df = df.dropna().copy()
 
 print(f" Sau khi tạo lag features: {len(df):,} hàng")
 
-# =====================================================
-# FEATURES & TARGET
-# =====================================================
-
 FEATURES = [
     # WEATHER
     'clouds_lag_1', 'precipitation_lag_1', 'pressure_lag_1', 
@@ -108,7 +104,7 @@ y_train = train[TARGET]
 
 print(f"\nTrain: {len(train):,} hàng (2022–2024)")
 
-# Tải mô hình đã lưu từ trước
+
 MODEL_PATH = "library_framework/best_model.pkl"
 if os.path.exists(MODEL_PATH):
     print("⏳ Đang tải model đã train...")
@@ -117,31 +113,26 @@ if os.path.exists(MODEL_PATH):
 else:
     raise FileNotFoundError(f"❌ Không tìm thấy file {MODEL_PATH}!")
 
-# ══════════════════════════════════════════════════════
 #  PHÂN LOẠI CONTEXT
-# ══════════════════════════════════════════════════════
 def get_time_context(hour, is_rush_hour, is_weekend):
-    """Phân loại thời điểm trong ngày"""
     if is_rush_hour and not is_weekend:
         if 5 <= hour <= 10:
-            return 'rush_morning'   # Cao điểm sáng
+            return 'rush_morning'   
         else:
-            return 'rush_evening'   # Cao điểm chiều
+            return 'rush_evening'   
     elif 5 <= hour <= 11:
-        return 'morning'            # Sáng thường
+        return 'morning'            
     elif 12 <= hour <= 17:
-        return 'afternoon'          # Chiều
+        return 'afternoon'         
     elif 18 <= hour <= 22:
-        return 'evening'            # Tối
+        return 'evening'            
     else:
-        return 'night'              # Đêm khuya
+        return 'night'             
 
 def get_season_context(season):
     return {0: 'Đông', 1: 'Xuân', 2: 'Hạ', 3: 'Thu'}[season]
 
-# ══════════════════════════════════════════════════════
-#  KHUYẾN NGHỊ CƠ BẢN THEO AQI
-# ══════════════════════════════════════════════════════
+#  KHUYẾN NGHỊ CƠ BẢN THEO AQI, NHÓM ĐỐI TƯỢNG
 AQI_RULES = {
     'Good': {
         'range': (0, 50),
@@ -193,9 +184,7 @@ def get_aqi_level(aqi_value):
             return cat
     return 'Hazardous'
 
-# ══════════════════════════════════════════════════════
 #  KHUYẾN NGHỊ CONTEXT-AWARE (THÔNG MINH)
-# ══════════════════════════════════════════════════════
 def get_context_advice(aqi_value, time_ctx, season_name, hour):
     level = get_aqi_level(aqi_value)
     advice = []
@@ -276,9 +265,7 @@ def get_context_advice(aqi_value, time_ctx, season_name, hour):
 
     return advice
 
-# ══════════════════════════════════════════════════════
 #  DEMO — 6 CASE MINH HỌA
-# ══════════════════════════════════════════════════════
 SEASON_MAP = {0: 'Đông', 1: 'Xuân', 2: 'Hạ', 3: 'Thu'}
 WEEKDAY_MAP = {
     0: 'Thứ Hai', 1: 'Thứ Ba', 2: 'Thứ Tư', 

@@ -75,10 +75,6 @@ df = df.dropna().copy()
 
 print(f" Sau khi tạo lag features: {len(df):,} hàng")
 
-# =====================================================
-# FEATURES & TARGET
-# =====================================================
-
 FEATURES = [
     # WEATHER
     'clouds_lag_1', 'precipitation_lag_1', 'pressure_lag_1', 
@@ -108,7 +104,6 @@ y_train = train[TARGET]
 
 print(f"\nTrain: {len(train):,} hàng (2022–2024)")
 
-# Tải mô hình đã lưu từ trước
 MODEL_PATH = "library_framework/best_model.pkl"
 if os.path.exists(MODEL_PATH):
     print("⏳ Đang tải model đã train...")
@@ -117,9 +112,7 @@ if os.path.exists(MODEL_PATH):
 else:
     raise FileNotFoundError(f"❌ Không tìm thấy file {MODEL_PATH}!")
 
-# ══════════════════════════════════════════════════════
 # HÀM PHỤ TRỢ
-# ══════════════════════════════════════════════════════
 def get_season(month):
     if month in [12, 1, 2]:  return 0   # Đông
     elif month in [3, 4, 5]: return 1   # Xuân
@@ -150,9 +143,7 @@ def get_aqi_level(aqi_value):
 SEASON_MAP   = {0: 'Đông', 1: 'Xuân', 2: 'Hạ', 3: 'Thu'}
 SEASON_EMOJI = {0: '❄️',   1: '🌸',   2: '☀️', 3: '🍂'}
 
-# ══════════════════════════════════════════════════════
 #  KHUYẾN NGHỊ THEO NHÓM NGƯỜI DÙNG
-# ══════════════════════════════════════════════════════
 AQI_RULES = {
     'Good': {
         'range': (0, 50), 'emoji': '🟢',
@@ -163,24 +154,24 @@ AQI_RULES = {
     },
     'Moderate': {
         'range': (51, 100), 'emoji': '🟡',
-        'Trẻ em':          '⚠️ Hạn chế vận động mạnh',
-        'Người già':       '⚠️ Tránh vận động mạnh',
-        'Bệnh hô hấp':     '⚠️ Theo dõi triệu chứng',
+        'Trẻ em':          '✅ Hoạt động bình thường',
+        'Người già':       '✅ Hoạt động bình thường',
+        'Bệnh hô hấp':     '🌤️ Theo dõi sức khỏe',
         'Người khỏe mạnh': '✅ Hoạt động bình thường'
     },
     'Unhealthy for sensitive groups': {
         'range': (101, 150), 'emoji': '🟠',
-        'Trẻ em':          '🔶 Đeo khẩu trang khi ra ngoài',
-        'Người già':       '🔶 Đeo khẩu trang N95',
-        'Bệnh hô hấp':     '🔴 Tránh ra ngoài',
-        'Người khỏe mạnh': '⚠️ Hạn chế vận động mạnh ngoài trời'
+        'Trẻ em':          '🔶 Hạn chế hoạt động ngoài trời lâu',
+        'Người già':       '🔶 Đeo khẩu trang khi ra ngoài',
+        'Bệnh hô hấp':     '🔴 Hạn chế ra ngoài',
+        'Người khỏe mạnh': '🌤️ Đeo khẩu trang khi đi đường'
     },
     'Unhealthy': {
         'range': (151, 200), 'emoji': '🔴',
         'Trẻ em':          '🔴 Không nên ra ngoài',
         'Người già':       '🔴 Ở trong nhà',
-        'Bệnh hô hấp':     '🔴 Ở trong nhà hoàn toàn',
-        'Người khỏe mạnh': '🔶 Đeo N95 nếu bắt buộc ra ngoài'
+        'Bệnh hô hấp':     '🚨 Ở trong nhà hoàn toàn',
+        'Người khỏe mạnh': '🔶 Đeo khẩu trang N95 khi ra ngoài'
     },
     'Very Unhealthy': {
         'range': (201, 300), 'emoji': '🟣',
@@ -191,16 +182,14 @@ AQI_RULES = {
     },
     'Hazardous': {
         'range': (301, 999), 'emoji': '⚫',
-        'Trẻ em':          '🚨 Cấm ra ngoài',
-        'Người già':       '🚨 Liên hệ y tế ngay',
-        'Bệnh hô hấp':     '🚨 Cần hỗ trợ y tế khẩn cấp',
-        'Người khỏe mạnh': '🚨 Không ra ngoài'
+        'Trẻ em':          '🚫 Nghiêm cấm ra ngoài',
+        'Người già':       '🚫 Liên hệ y tế nếu mệt mỏi',
+        'Bệnh hô hấp':     '🚫 Cần hỗ trợ y tế khẩn cấp',
+        'Người khỏe mạnh': '🚨 Ở trong nhà, đóng kín cửa sổ'
     }
 }
 
-# ══════════════════════════════════════════════════════
 #  KHUYẾN NGHỊ CONTEXT-AWARE
-# ══════════════════════════════════════════════════════
 def get_context_advice(aqi_value, time_ctx, season_name, hour):
     level  = get_aqi_level(aqi_value)
     advice = []
@@ -264,9 +253,7 @@ def get_context_advice(aqi_value, time_ctx, season_name, hour):
     advice.append(general[level])
     return advice
 
-# ══════════════════════════════════════════════════════
 #  ỨNG DỤNG NHẬP NGÀY THÁNG DỰ BÁO
-# ══════════════════════════════════════════════════════
 def predict_by_datetime():
     print("\n" + "═"*62)
     print("  ỨNG DỤNG DỰ BÁO AQI HÀ NỘI — KHUYẾN NGHỊ THÔNG MINH")
