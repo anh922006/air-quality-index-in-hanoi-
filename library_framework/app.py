@@ -302,119 +302,289 @@ with tab2:
     - Rolling Mean
     - EMA
     """)
- 
+
     c1, c2 = st.columns(2)
+
     with c1:
         selected_date = st.date_input("📅 Chọn ngày")
     with c2:
         selected_hour = st.slider("⏰ Chọn giờ", 0, 23, 8)
- 
-    target_time = pd.to_datetime(
-        f"{selected_date} {selected_hour:02d}:00:00"
-    )
- 
+
+    target_time = pd.to_datetime(f"{selected_date} {selected_hour:02d}:00:00")
+
     if st.button("🚀 DỰ BÁO AQI", use_container_width=True):
-        matched_row = df[
-            df['local_time'] == target_time
-        ]
- 
+
+        matched_row = df[df['local_time'] == target_time]
+
         if not matched_row.empty:
             st.success("✅ Tìm thấy dữ liệu lịch sử phù hợp")
             input_features = matched_row[FEATURES].iloc[0].to_dict()
             source_type = "Dữ liệu lịch sử thực"
- 
+
         else:
             st.warning("⚠️ Không có dữ liệu đúng thời điểm — dùng trung bình lịch sử")
- 
+
             mask = (
                 (df['month'] == target_time.month)
                 &
                 (df['hour'] == selected_hour)
             )
- 
+
             if mask.sum() == 0:
                 mask = df['month'] == target_time.month
- 
-            input_features = (
-                df[mask][FEATURES]
-                .mean()
-                .to_dict()
-            )
+
+            input_features = df[mask][FEATURES].mean().to_dict()
             source_type = "Dữ liệu trung bình lịch sử"
- 
+
         input_features.update({
             'month': target_time.month,
             'hour': selected_hour,
             'day_of_week': target_time.dayofweek,
             'is_weekend': 1 if target_time.dayofweek >= 5 else 0,
-            'is_rush_hour': 1 if selected_hour in [
-                6,7,8,9,17,18,19,20
-            ] else 0,
-            'season':
-                0 if target_time.month in [12,1,2]
+            'is_rush_hour': 1 if selected_hour in [6,7,8,9,17,18,19,20] else 0,
+            'season': 0 if target_time.month in [12,1,2]
                 else 1 if target_time.month in [3,4,5]
                 else 2 if target_time.month in [6,7,8]
                 else 3
         })
- 
+
         input_df = pd.DataFrame([input_features])[FEATURES]
- 
+
         pred_aqi = float(model_regression.predict(input_df)[0])
- 
+
         level_label, emoji, color_hex, text_color = \
             get_aqi_level_details(pred_aqi)
- 
-        # RESULT BOX
+
         st.markdown(f"""
-        <div style="background-color:{color_hex};padding:25px;border-radius:16px;text-align:center;margin-top:20px;">
-        <h1 style="color:{text_color};font-size:60px;margin-bottom:0;">{pred_aqi:.1f}</h1>
-        <h2 style="color:{text_color};">{emoji} {level_label}</h2>
-        <p style="color:{text_color};">Nguồn dữ liệu: {source_type}</p>
-        </div>
-        """, unsafe_allow_html=True)
- 
+<div style="background-color:{color_hex}; padding:25px; border-radius:16px; text-align:center; margin-top:20px;">
+    <h1 style="color:{text_color}; font-size:60px; margin-top:0; margin-bottom:10px; font-weight:bold; line-height:1;">
+        {pred_aqi:.1f}
+    </h1>
+    <h2 style="color:{text_color}; font-size:24px; margin-top:0; margin-bottom:10px; font-weight:600;">
+        {emoji} {level_label}
+    </h2>
+    <p style="color:{text_color}; font-size:14px; margin-bottom:0; opacity:0.9;">
+        Nguồn dữ liệu: {source_type}
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
         st.subheader("🌦️ Điều kiện môi trường")
+
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric(
-            "PM2.5",
-            f"{input_features['pm25_lag_1']:.1f}"
-        )
-        m2.metric(
-            "PM10",
-            f"{input_features['pm10_lag_1']:.1f}"
-        )
-        m3.metric(
-            "Nhiệt độ",
-            f"{input_features['temperature_lag_1']:.1f}°C"
-        )
-        m4.metric(
-            "Độ ẩm",
-            f"{input_features['relative_humidity_lag_1']:.0f}%"
-        )
- 
+
+        m1.metric("PM2.5", f"{input_features['pm25_lag_1']:.1f}")
+        m2.metric("PM10", f"{input_features['pm10_lag_1']:.1f}")
+        m3.metric("Nhiệt độ", f"{input_features['temperature_lag_1']:.1f}°C")
+        m4.metric("Độ ẩm", f"{input_features['relative_humidity_lag_1']:.0f}%")
+
         st.subheader("💡 Khuyến nghị sức khỏe")
-        filtered_row = df_rec[
-            df_rec['Danh mục'] == level_label
-        ]
+
+        filtered_row = df_rec[df_rec['Danh mục'] == level_label]
+
         if not filtered_row.empty:
+
             c1, c2, c3, c4 = st.columns(4)
+
             c1.info(f"👦 Trẻ em\n\n{filtered_row['Trẻ em'].values[0]}")
-            c2.warning( f"👴 Người già\n\n{filtered_row['Người già'].values[0]}")
+            c2.warning(f"👴 Người già\n\n{filtered_row['Người già'].values[0]}")
             c3.error(f"🫁 Bệnh hô hấp\n\n{filtered_row['Bệnh hô hấp'].values[0]}")
             c4.success(f"🏃 Người khỏe mạnh\n\n{filtered_row['Khỏe mạnh'].values[0]}")
-        
+
         ctx_tips = get_context_advice_from_csv(
-            pred_aqi, 
-            'rush_morning' if input_features['is_rush_hour'] and not input_features['is_weekend'] else 'morning',
-            {0:'Đông', 1:'Xuân', 2:'Hè', 3:'Thu'}[int(input_features['season'])],
+            pred_aqi,
+            'rush_morning' if (
+                input_features['is_rush_hour']
+                and
+                not input_features['is_weekend']
+            ) else 'morning',
+            {0:'Đông',1:'Xuân',2:'Hè',3:'Thu'}[int(input_features['season'])],
             level_label
         )
- 
+
         if ctx_tips:
             st.subheader("💡 Khuyến nghị thông minh theo ngữ cảnh")
+
             for tip in ctx_tips:
                 st.info(f"→ {tip}")
- 
+
+    st.divider()
+
+    st.subheader("📋 Demo 6 Case Đại Diện")
+    cases_display = []
+    SEASON_MAP_DEMO = {0:'Đông',1:'Xuân',2:'Hạ',3:'Thu'}
+    WEEKDAY_MAP = {0:'Thứ Hai',1:'Thứ Ba',2:'Thứ Tư',3:'Thứ Năm',4:'Thứ Sáu',5:'Thứ Bảy',6:'Chủ Nhật'}
+
+    test_demo = df[df['year'] == 2025].copy()
+    train_demo = df[df['year'] < 2025].copy()
+
+    for season_code, season_name in SEASON_MAP_DEMO.items():
+
+        season_subset = (
+            test_demo[test_demo['season'] == season_code]
+            .sort_values('aqi')
+            .reset_index(drop=True)
+        )
+
+        if len(season_subset) == 0:
+            continue
+
+        for pct in [0.25, 0.85]:
+            idx = int(len(season_subset) * pct)
+            if idx >= len(season_subset):
+                continue
+
+            row = season_subset.iloc[idx]
+            matched = df[df['local_time'] == row['local_time']]
+
+            if (
+                not matched.empty
+                and
+                not pd.isna(matched['aqi_lag_1'].values[0])
+            ):
+
+                inp = matched[FEATURES].iloc[0].to_dict()
+                source = "Dữ liệu chuỗi trễ thực tế"
+                temp_s = matched['temperature_lag_1'].values[0]
+                pm25_s = matched['pm25_lag_1'].values[0]
+
+            else:
+                mask = (
+                    (train_demo['month'] == int(row['month']))
+                    &
+                    (train_demo['hour'] == int(row['hour']))
+                )
+
+                if mask.sum() == 0:
+                    mask = train_demo['month'] == int(row['month'])
+
+                inp = train_demo[mask][FEATURES].mean().to_dict()
+                source = "Trung bình lịch sử"
+
+                temp_s = inp.get('temperature_lag_1', 25.0)
+                pm25_s = inp.get('pm25_lag_1', 40.0)
+
+            inp.update({
+                'month': int(row['month']),
+                'hour': int(row['hour']),
+                'day_of_week': int(row['day_of_week']),
+                'is_weekend': int(row['is_weekend']),
+                'is_rush_hour': int(row['is_rush_hour']),
+                'season': season_code
+            })
+
+            pred = round(
+                float(
+                    model_regression.predict(
+                        pd.DataFrame([inp])[FEATURES]
+                    )[0]
+                ),
+                1
+            )
+
+            level_l, emoji_l, color_l, text_c = \
+                get_aqi_level_details(pred)
+
+            cases_display.append({
+                'time': str(row['local_time'])[:13] + 'h',
+                'weekday': WEEKDAY_MAP.get(int(row['day_of_week']), ''),
+                'season': season_name,
+                'aqi_actual': row['aqi'],
+                'aqi_pred': pred,
+                'level': level_l,
+                'emoji': emoji_l,
+                'color': color_l,
+                'text_color': text_c,
+                'source': source,
+                'temp': round(temp_s, 1),
+                'pm25': round(pm25_s, 1),
+                'rec': df_rec[df_rec['Danh mục'] == level_l].iloc[0]
+                    if level_l in df_rec['Danh mục'].values
+                    else None
+            })
+
+    for i, case in enumerate(cases_display):
+
+        with st.expander(
+            f"Case {i+1}: "
+            f"[{case['season']}] "
+            f"{case['time']} "
+            f"({case['weekday']}) "
+            f"— AQI dự báo: "
+            f"{case['aqi_pred']} "
+            f"{case['emoji']} "
+            f"{case['level']}",
+            expanded=False
+        ):
+
+            st.markdown(f"""
+            <div style="
+                background-color:{case['color']};
+                padding:15px;
+                border-radius:10px;
+                text-align:center;
+                margin-bottom:10px;
+            ">
+                <span style="
+                    color:{case['text_color']};
+                    font-size:32px;
+                    font-weight:bold;
+                    display: inline-block;
+                    vertical-align: middle;
+                ">
+                    {case['aqi_pred']}
+                </span>
+                <span style="
+                    color:{case['text_color']};
+                    font-size:20px;
+                    font-weight:500;
+                    display: inline-block;
+                    vertical-align: middle;
+                    margin-left: 10px;
+                ">
+                    — {case['emoji']} {case['level']}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.caption(f"ℹ️ Nguồn: {case['source']}")
+
+            m1, m2, m3 = st.columns(3)
+
+            m1.metric("AQI thực tế", case['aqi_actual'])
+            m2.metric("Nhiệt độ (1h trước)", f"{case['temp']}°C")
+            m3.metric("PM2.5 (1h trước)", case['pm25'])
+
+            if case['rec'] is not None:
+
+                st.markdown("**👥 Khuyến nghị theo nhóm:**")
+
+                g1, g2, g3, g4 = st.columns(4)
+
+                g1.info(f"👦 Trẻ em\n\n{case['rec']['Trẻ em']}")
+                g2.warning(f"👴 Người già\n\n{case['rec']['Người già']}")
+                g3.error(f"🫁 Bệnh hô hấp\n\n{case['rec']['Bệnh hô hấp']}")
+                g4.success(f"🏃 Khỏe mạnh\n\n{case['rec']['Khỏe mạnh']}")
+            
+            case_hour = int(case['time'].split(' ')[1].replace('h', ''))
+            
+            is_rush = 1 if case_hour in [6, 7, 8, 9, 17, 18, 19, 20] else 0
+            is_wkend = 1 if case['weekday'] in ['Thứ Bảy', 'Chủ Nhật'] else 0
+            
+            time_ctx = 'rush_morning' if (is_rush and not is_wkend) else 'morning'
+
+            case_ctx_tips = get_context_advice_from_csv(
+                case['aqi_pred'],
+                time_ctx,
+                case['season'], 
+                case['level']   
+            )
+
+            if case_ctx_tips:
+                st.markdown("**💡 Khuyến nghị thông minh theo ngữ cảnh:**")
+                for tip in case_ctx_tips:
+                    st.write(f" <span style='font-size:14px;'>{tip}</span>", unsafe_allow_html=True)
+
 # ---------------------------------------------------------
 # TAB 3: BÁO CÁO HIỆU NĂNG THUẬT TOÁN (Trùng khớp Best_model & Classification)
 # ---------------------------------------------------------
