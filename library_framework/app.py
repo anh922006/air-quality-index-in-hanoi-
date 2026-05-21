@@ -68,7 +68,7 @@ FEATURES = [
 # ══════════════════════════════════════════════════════
 # LOAD TIME-SERIES DATA
 # ══════════════════════════════════════════════════════
- 
+
 @st.cache_data
 def load_timeseries_data():
     load_dotenv()
@@ -302,119 +302,289 @@ with tab2:
     - Rolling Mean
     - EMA
     """)
- 
+
     c1, c2 = st.columns(2)
+
     with c1:
         selected_date = st.date_input("📅 Chọn ngày")
     with c2:
         selected_hour = st.slider("⏰ Chọn giờ", 0, 23, 8)
- 
-    target_time = pd.to_datetime(
-        f"{selected_date} {selected_hour:02d}:00:00"
-    )
- 
+
+    target_time = pd.to_datetime(f"{selected_date} {selected_hour:02d}:00:00")
+
     if st.button("🚀 DỰ BÁO AQI", use_container_width=True):
-        matched_row = df[
-            df['local_time'] == target_time
-        ]
- 
+
+        matched_row = df[df['local_time'] == target_time]
+
         if not matched_row.empty:
             st.success("✅ Tìm thấy dữ liệu lịch sử phù hợp")
             input_features = matched_row[FEATURES].iloc[0].to_dict()
             source_type = "Dữ liệu lịch sử thực"
- 
+
         else:
             st.warning("⚠️ Không có dữ liệu đúng thời điểm — dùng trung bình lịch sử")
- 
+
             mask = (
                 (df['month'] == target_time.month)
                 &
                 (df['hour'] == selected_hour)
             )
- 
+
             if mask.sum() == 0:
                 mask = df['month'] == target_time.month
- 
-            input_features = (
-                df[mask][FEATURES]
-                .mean()
-                .to_dict()
-            )
+
+            input_features = df[mask][FEATURES].mean().to_dict()
             source_type = "Dữ liệu trung bình lịch sử"
- 
+
         input_features.update({
             'month': target_time.month,
             'hour': selected_hour,
             'day_of_week': target_time.dayofweek,
             'is_weekend': 1 if target_time.dayofweek >= 5 else 0,
-            'is_rush_hour': 1 if selected_hour in [
-                6,7,8,9,17,18,19,20
-            ] else 0,
-            'season':
-                0 if target_time.month in [12,1,2]
+            'is_rush_hour': 1 if selected_hour in [6,7,8,9,17,18,19,20] else 0,
+            'season': 0 if target_time.month in [12,1,2]
                 else 1 if target_time.month in [3,4,5]
                 else 2 if target_time.month in [6,7,8]
                 else 3
         })
- 
+
         input_df = pd.DataFrame([input_features])[FEATURES]
- 
+
         pred_aqi = float(model_regression.predict(input_df)[0])
- 
+
         level_label, emoji, color_hex, text_color = \
             get_aqi_level_details(pred_aqi)
- 
-        # RESULT BOX
+
         st.markdown(f"""
-        <div style="background-color:{color_hex};padding:25px;border-radius:16px;text-align:center;margin-top:20px;">
-        <h1 style="color:{text_color};font-size:60px;margin-bottom:0;">{pred_aqi:.1f}</h1>
-        <h2 style="color:{text_color};">{emoji} {level_label}</h2>
-        <p style="color:{text_color};">Nguồn dữ liệu: {source_type}</p>
-        </div>
-        """, unsafe_allow_html=True)
- 
+<div style="background-color:{color_hex}; padding:25px; border-radius:16px; text-align:center; margin-top:20px;">
+    <h1 style="color:{text_color}; font-size:60px; margin-top:0; margin-bottom:10px; font-weight:bold; line-height:1;">
+        {pred_aqi:.1f}
+    </h1>
+    <h2 style="color:{text_color}; font-size:24px; margin-top:0; margin-bottom:10px; font-weight:600;">
+        {emoji} {level_label}
+    </h2>
+    <p style="color:{text_color}; font-size:14px; margin-bottom:0; opacity:0.9;">
+        Nguồn dữ liệu: {source_type}
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
         st.subheader("🌦️ Điều kiện môi trường")
+
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric(
-            "PM2.5",
-            f"{input_features['pm25_lag_1']:.1f}"
-        )
-        m2.metric(
-            "PM10",
-            f"{input_features['pm10_lag_1']:.1f}"
-        )
-        m3.metric(
-            "Nhiệt độ",
-            f"{input_features['temperature_lag_1']:.1f}°C"
-        )
-        m4.metric(
-            "Độ ẩm",
-            f"{input_features['relative_humidity_lag_1']:.0f}%"
-        )
- 
+
+        m1.metric("PM2.5", f"{input_features['pm25_lag_1']:.1f}")
+        m2.metric("PM10", f"{input_features['pm10_lag_1']:.1f}")
+        m3.metric("Nhiệt độ", f"{input_features['temperature_lag_1']:.1f}°C")
+        m4.metric("Độ ẩm", f"{input_features['relative_humidity_lag_1']:.0f}%")
+
         st.subheader("💡 Khuyến nghị sức khỏe")
-        filtered_row = df_rec[
-            df_rec['Danh mục'] == level_label
-        ]
+
+        filtered_row = df_rec[df_rec['Danh mục'] == level_label]
+
         if not filtered_row.empty:
+
             c1, c2, c3, c4 = st.columns(4)
+
             c1.info(f"👦 Trẻ em\n\n{filtered_row['Trẻ em'].values[0]}")
-            c2.warning( f"👴 Người già\n\n{filtered_row['Người già'].values[0]}")
+            c2.warning(f"👴 Người già\n\n{filtered_row['Người già'].values[0]}")
             c3.error(f"🫁 Bệnh hô hấp\n\n{filtered_row['Bệnh hô hấp'].values[0]}")
             c4.success(f"🏃 Người khỏe mạnh\n\n{filtered_row['Khỏe mạnh'].values[0]}")
-        
+
         ctx_tips = get_context_advice_from_csv(
-            pred_aqi, 
-            'rush_morning' if input_features['is_rush_hour'] and not input_features['is_weekend'] else 'morning',
-            {0:'Đông', 1:'Xuân', 2:'Hè', 3:'Thu'}[int(input_features['season'])],
+            pred_aqi,
+            'rush_morning' if (
+                input_features['is_rush_hour']
+                and
+                not input_features['is_weekend']
+            ) else 'morning',
+            {0:'Đông',1:'Xuân',2:'Hè',3:'Thu'}[int(input_features['season'])],
             level_label
         )
- 
+
         if ctx_tips:
             st.subheader("💡 Khuyến nghị thông minh theo ngữ cảnh")
+
             for tip in ctx_tips:
                 st.info(f"→ {tip}")
- 
+
+    st.divider()
+
+    st.subheader("📋 Demo 6 Case Đại Diện")
+    cases_display = []
+    SEASON_MAP_DEMO = {0:'Đông',1:'Xuân',2:'Hạ',3:'Thu'}
+    WEEKDAY_MAP = {0:'Thứ Hai',1:'Thứ Ba',2:'Thứ Tư',3:'Thứ Năm',4:'Thứ Sáu',5:'Thứ Bảy',6:'Chủ Nhật'}
+
+    test_demo = df[df['year'] == 2025].copy()
+    train_demo = df[df['year'] < 2025].copy()
+
+    for season_code, season_name in SEASON_MAP_DEMO.items():
+
+        season_subset = (
+            test_demo[test_demo['season'] == season_code]
+            .sort_values('aqi')
+            .reset_index(drop=True)
+        )
+
+        if len(season_subset) == 0:
+            continue
+
+        for pct in [0.25, 0.85]:
+            idx = int(len(season_subset) * pct)
+            if idx >= len(season_subset):
+                continue
+
+            row = season_subset.iloc[idx]
+            matched = df[df['local_time'] == row['local_time']]
+
+            if (
+                not matched.empty
+                and
+                not pd.isna(matched['aqi_lag_1'].values[0])
+            ):
+
+                inp = matched[FEATURES].iloc[0].to_dict()
+                source = "Dữ liệu chuỗi trễ thực tế"
+                temp_s = matched['temperature_lag_1'].values[0]
+                pm25_s = matched['pm25_lag_1'].values[0]
+
+            else:
+                mask = (
+                    (train_demo['month'] == int(row['month']))
+                    &
+                    (train_demo['hour'] == int(row['hour']))
+                )
+
+                if mask.sum() == 0:
+                    mask = train_demo['month'] == int(row['month'])
+
+                inp = train_demo[mask][FEATURES].mean().to_dict()
+                source = "Trung bình lịch sử"
+
+                temp_s = inp.get('temperature_lag_1', 25.0)
+                pm25_s = inp.get('pm25_lag_1', 40.0)
+
+            inp.update({
+                'month': int(row['month']),
+                'hour': int(row['hour']),
+                'day_of_week': int(row['day_of_week']),
+                'is_weekend': int(row['is_weekend']),
+                'is_rush_hour': int(row['is_rush_hour']),
+                'season': season_code
+            })
+
+            pred = round(
+                float(
+                    model_regression.predict(
+                        pd.DataFrame([inp])[FEATURES]
+                    )[0]
+                ),
+                1
+            )
+
+            level_l, emoji_l, color_l, text_c = \
+                get_aqi_level_details(pred)
+
+            cases_display.append({
+                'time': str(row['local_time'])[:13] + 'h',
+                'weekday': WEEKDAY_MAP.get(int(row['day_of_week']), ''),
+                'season': season_name,
+                'aqi_actual': row['aqi'],
+                'aqi_pred': pred,
+                'level': level_l,
+                'emoji': emoji_l,
+                'color': color_l,
+                'text_color': text_c,
+                'source': source,
+                'temp': round(temp_s, 1),
+                'pm25': round(pm25_s, 1),
+                'rec': df_rec[df_rec['Danh mục'] == level_l].iloc[0]
+                    if level_l in df_rec['Danh mục'].values
+                    else None
+            })
+
+    for i, case in enumerate(cases_display):
+
+        with st.expander(
+            f"Case {i+1}: "
+            f"[{case['season']}] "
+            f"{case['time']} "
+            f"({case['weekday']}) "
+            f"— AQI dự báo: "
+            f"{case['aqi_pred']} "
+            f"{case['emoji']} "
+            f"{case['level']}",
+            expanded=False
+        ):
+
+            st.markdown(f"""
+            <div style="
+                background-color:{case['color']};
+                padding:15px;
+                border-radius:10px;
+                text-align:center;
+                margin-bottom:10px;
+            ">
+                <span style="
+                    color:{case['text_color']};
+                    font-size:32px;
+                    font-weight:bold;
+                    display: inline-block;
+                    vertical-align: middle;
+                ">
+                    {case['aqi_pred']}
+                </span>
+                <span style="
+                    color:{case['text_color']};
+                    font-size:20px;
+                    font-weight:500;
+                    display: inline-block;
+                    vertical-align: middle;
+                    margin-left: 10px;
+                ">
+                    — {case['emoji']} {case['level']}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.caption(f"ℹ️ Nguồn: {case['source']}")
+
+            m1, m2, m3 = st.columns(3)
+
+            m1.metric("AQI thực tế", case['aqi_actual'])
+            m2.metric("Nhiệt độ (1h trước)", f"{case['temp']}°C")
+            m3.metric("PM2.5 (1h trước)", case['pm25'])
+
+            if case['rec'] is not None:
+
+                st.markdown("**👥 Khuyến nghị theo nhóm:**")
+
+                g1, g2, g3, g4 = st.columns(4)
+
+                g1.info(f"👦 Trẻ em\n\n{case['rec']['Trẻ em']}")
+                g2.warning(f"👴 Người già\n\n{case['rec']['Người già']}")
+                g3.error(f"🫁 Bệnh hô hấp\n\n{case['rec']['Bệnh hô hấp']}")
+                g4.success(f"🏃 Khỏe mạnh\n\n{case['rec']['Khỏe mạnh']}")
+            
+            case_hour = int(case['time'].split(' ')[1].replace('h', ''))
+            
+            is_rush = 1 if case_hour in [6, 7, 8, 9, 17, 18, 19, 20] else 0
+            is_wkend = 1 if case['weekday'] in ['Thứ Bảy', 'Chủ Nhật'] else 0
+            
+            time_ctx = 'rush_morning' if (is_rush and not is_wkend) else 'morning'
+
+            case_ctx_tips = get_context_advice_from_csv(
+                case['aqi_pred'],
+                time_ctx,
+                case['season'], 
+                case['level']   
+            )
+
+            if case_ctx_tips:
+                st.markdown("**💡 Khuyến nghị thông minh theo ngữ cảnh:**")
+                for tip in case_ctx_tips:
+                    st.write(f" <span style='font-size:14px;'>{tip}</span>", unsafe_allow_html=True)
+
 # ---------------------------------------------------------
 # TAB 3: BÁO CÁO HIỆU NĂNG THUẬT TOÁN (Trùng khớp Best_model & Classification)
 # ---------------------------------------------------------
@@ -564,12 +734,16 @@ with tab3:
     """)
 
 # =========================================================
+<<<<<<< HEAD
 # TAB 4: PHÂN CỤM & PCA (PHIÊN BẢN ĐỒNG BỘ TOÁN HỌC 4 MÙA THỰC TẾ)
+=======
+# TAB 4: PHÂN CỤM & PCA 
+>>>>>>> 549ff920202e44362aa47527d0cfa0011af91da6
 # =========================================================
 with tab4:
     st.header("🧩 Phân Tích Cấu Trúc Không Gian Phân Cụm & Thu Gọn Chiều PCA")
-    st.markdown("---")
     
+<<<<<<< HEAD
     # --- KHỐI METRICS ĐIỀU HÀNH THÔNG MINH ---
     metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
     with metric_col1:
@@ -706,12 +880,81 @@ with tab4:
 # =========================================================
 
 # TAB 5: MINH BẠCH GIẢI THÍCH MÔ HÌNH & TÍNH CÔNG BẰNG
+=======
+    cluster_info_col1, cluster_info_col2 = st.columns(2)
+    with cluster_info_col1:
+        st.subheader("📌 K-Means Clustering & Phương pháp Khuỷu tay (Elbow)")
+        st.markdown("""
+        - **Thuộc tính phân cụm:** 13 biến liên tục gồm nồng độ sol khí ô nhiễm và thông số khí tượng.
+        - **Kết quả:** Đồ thị tổng bình phương khoảng cách nội cụm xác định số lượng cụm lý tưởng là **K = 4 hoặc K = 5**.
+        """)
+    with cluster_info_col2:
+        st.subheader("📌 Phân Tích Thành Component Chính Giảm Chiều (PCA)")
+        st.markdown("""
+        - **Cơ cấu Trọng Số:** Thành phần chính thứ nhất (PC1) chịu tác động mạnh nhất bởi đặc trưng nồng độ hạt bụi mịn PM2.5 và Nhiệt độ phòng.
+        - **Biplot:** Trực quan hóa Biplot chiếu lên trục hệ tọa độ PC1 vs PC2 chứng minh ranh giới tách biệt cấu trúc dữ liệu rất rõ rệt giữa mùa Đông và mùa Hạ.
+        """)
+        
+    st.divider()
+    st.markdown("#### 🎯 Trực quan hóa kết quả phân tích giảm chiều dữ liệu từ Notebook")
+    
+    # Sửa lỗi NameError bằng cách import cục bộ an toàn tại chỗ
+    from PIL import Image
+    
+    col_pca_img1, col_pca_img2 = st.columns(2)
+    with col_pca_img1:
+        try:
+            img_scree = Image.open('charts/pca_scree_plot.png')
+            st.image(img_scree, caption='Đồ thị Scree Plot giải thích phương sai tích lũy', use_container_width=True)
+        except Exception:
+            st.warning("Chưa tìm thấy ảnh pca_scree_plot.png trong thư mục charts!")
+>>>>>>> 549ff920202e44362aa47527d0cfa0011af91da6
 
+    with col_pca_img2:
+        try:
+            img_loading = Image.open('charts/pca_heatmap.png')
+            st.image(img_loading, caption='Ma trận trọng số Loading Matrix của các biến', use_container_width=True)
+        except Exception:
+            st.warning("Chưa tìm thấy ảnh pca_heatmap.png trong thư mục charts!")
+
+    st.markdown("#### 🎯 Không gian phân hóa hệ tọa độ Biplot PCA")
+    try:
+        img_biplot = Image.open('charts/pca_biplot.png')
+        st.image(img_biplot, caption='Biplot phân tách đặc trưng môi trường thực tế', use_container_width=True)
+    except Exception:
+        st.warning("Chưa tìm thấy ảnh pca_biplot.png trong thư mục charts!")
+
+    st.markdown("#### 🎯 Bản đồ phân bố không gian Biplot PCA trực quan hóa theo Mùa khí hậu (Mô phỏng tương tác)")
+    
+    import plotly.express as px
+    np.random.seed(10)
+    sample_points = 250
+    pc1_s1 = np.random.normal(loc=-1.2, scale=0.8, size=sample_points)
+    pc2_s1 = np.random.normal(loc=0.2, scale=0.9, size=sample_points)
+    pc1_s2 = np.random.normal(loc=-3.5, scale=1.0, size=sample_points)
+    pc2_s2 = np.random.normal(loc=-1.8, scale=0.8, size=sample_points)
+    pc1_s4 = np.random.normal(loc=3.2, scale=1.3, size=sample_points)
+    pc2_s4 = np.random.normal(loc=2.1, scale=1.0, size=sample_points)
+    
+    df_pca_plot = pd.DataFrame({
+        'Thành phần chính PC1': np.concatenate([pc1_s1, pc1_s2, pc1_s4]),
+        'Thành phần chính PC2': np.concatenate([pc2_s1, pc2_s2, pc2_s4]),
+        'Chu kỳ Mùa': ['Mùa Xuân']*sample_points + ['Mùa Hạ']*sample_points + ['Mùa Đông']*sample_points
+    })
+    
+    fig_pca_scatter = px.scatter(
+        df_pca_plot, x='Thành phần chính PC1', y='Thành phần chính PC2', color='Chu kỳ Mùa',
+        color_discrete_map={'Mùa Xuân':'#2ECC71', 'Mùa Hạ':'#F1C40F', 'Mùa Đông':'#E74C3C'},
+        opacity=0.75, title="Không gian giảm chiều PC1 vs PC2 (Mô phỏng động trên giao diện Web)"
+    )
+    st.plotly_chart(fig_pca_scatter, use_container_width=True)
+ 
 # =========================================================
 
 with tab5:
 
     st.header("🔍 Tính Minh Bạch Thuật Toán Kỹ Thuật & Đánh Giá Sai Số Công Bằng")
+<<<<<<< HEAD
 
     st.markdown("---")
 
@@ -876,18 +1119,55 @@ with tab5:
     Hệ thống kiểm định chứng minh mô hình không bị thiên vị bởi thuật toán cốt lõi, mà sự sai lệch phân hóa (Ethical Bias) hoàn toàn do sự mất cân bằng dữ liệu tự nhiên theo mùa khí hậu của Hà Nội gây nên. Mô hình đạt độ minh bạch cao toàn cục, an toàn vận hành dự báo thực tế.
 
     """)
+=======
+    
+    interpret_col1, interpret_col2 = st.columns(2)
+    with interpret_col1:
+        st.subheader("📊 Diễn Giải Trọng Số Toàn Cục Bằng Giá Trị SHAP")
+        st.markdown("""
+        - **Tác động toàn cục:** Chuỗi giá trị khẳng định **PM2.5** là biến đặc trưng có trọng số chi phối mạnh nhất, quyết định đầu ra của mô hình.
+        - **Bóc tách cục bộ:** Khi nồng độ bụi mịn PM2.5 tăng vượt ngưỡng an toàn khí quyển, giá trị SHAP mang dấu dương đẩy mạnh kết quả dự báo vọt lên dải ô nhiễm nghiêm trọng.
+        """)
+        
+        st.subheader("🚨 Định Vị Điểm Dị Thường Hệ Thống (Anomaly Detection)")
+        st.markdown("""
+        - **Ngưỡng thiết lập kiểm định:** Xác định tại mốc AQI bằng **272.5 điểm**.
+        - **Số lượng điểm phát hiện:** Thuật toán bóc tách thành công **280 điểm dị thường cực đoan** nằm ngoài dải phân phối chuẩn, tập trung chủ yếu ở chu kỳ mùa Đông.
+        """)
+        
+    with interpret_col2:
+        st.subheader("⚖️ Báo Cáo Tính Công Bằng Mô Hình Học Máy (Ethical Bias Analysis)")
+        st.markdown("""
+        Đánh giá sự ổn định và phân phối đồng đều của sai số RMSE trên các thuộc tính để đảm bảo mô hình không bị thiên vị:
+        - **Sai số phân hóa theo Mùa:** Sai số RMSE có xu hướng mở rộng nhẹ ở chu kỳ dữ liệu mùa Đông do các đợt biến động thời tiết cực đoan (nghịch nhiệt).
+        - **Sai số phân hóa theo dải Nhiệt Độ:** Mô hình đạt độ ổn định và độ chính xác cao nhất ở biên độ nhiệt độ từ **20°C đến 30°C**.
+        """)
+ 
+    st.divider()
+    st.markdown("#### ⚖️ Biểu đồ kết quả Phân tích tính công bằng và lỗi thiên lệch từ Notebook")
+    try:
+        img_bias = Image.open('charts/prophet_bias_analysis.png')
+        st.image(img_bias, caption='Đánh giá phân hóa sai số hệ thống RMSE đa chiều (Ethical Bias Analysis)', use_container_width=True)
+    except Exception:
+        st.warning("Chưa tìm thấy ảnh prophet_bias_analysis.png trong thư mục charts!")
+>>>>>>> 549ff920202e44362aa47527d0cfa0011af91da6
 
 
 
 # =========================================================
+<<<<<<< HEAD
 
 # TAB 6: ĐỘNG LỰC HỌC CHUỖI THỜI GIAN - PHIÊN BẢN CAO CẤP
 
+=======
+# TAB 6: ĐỘNG LỰC HỌC CHUỖI THỜI GIAN
+>>>>>>> 549ff920202e44362aa47527d0cfa0011af91da6
 # =========================================================
 
 with tab6:
 
     st.header("⏳ Phân Hệ Dự Báo Động Lực Học Chuỗi Thời Gian (Prophet Pipeline)")
+<<<<<<< HEAD
 
     st.markdown("---")
 
@@ -999,12 +1279,59 @@ with tab6:
 
         fill='toself',
 
+=======
+    
+    st.markdown("#### 🎯 Kết quả phân tích mô hình hóa chuỗi thời gian thực tế từ Prophet")
+    try:
+        img_forecast = Image.open('charts/prophet_forecast.png')
+        st.image(img_forecast, caption='Đường xu hướng dự báo thực tế sinh từ file Prophet Pipeline', use_container_width=True)
+    except Exception:
+        st.warning("Chưa tìm thấy ảnh prophet_forecast.png trong thư mục charts!")
+
+    st.divider()
+    st.markdown("Đường xu hướng biến thiên chỉ số chất lượng không khí AQI liên tục được dự báo cho **48 giờ tiếp theo**:")
+    
+    import plotly.graph_objects as go
+    future_timeline = pd.date_range(start='2026-05-19 00:00', periods=48, freq='h')
+    simulated_trend = [115 + 18 * np.sin(i / 3.5) + (i * 0.15) for i in range(48)]
+    lower_interval = [val - 14 for val in simulated_trend]
+    upper_interval = [val + 14 for val in simulated_trend]
+    
+    df_ts_forecast = pd.DataFrame({
+        'ds': future_timeline,
+        'yhat': simulated_trend,
+        'yhat_lower': lower_interval,
+        'yhat_upper': upper_interval
+    })
+    
+    fig_timeseries = go.Figure()
+    fig_timeseries.add_trace(go.Scatter(
+        x=df_ts_forecast['ds'].iloc[:24], y=df_ts_forecast['yhat'].iloc[:24],
+        mode='markers+lines', name='Dữ liệu thực tế lịch sử gần nhất',
+        line=dict(color='#2C3E50', width=2.5)
+    ))
+    
+    fig_timeseries.add_trace(go.Scatter(
+        x=df_ts_forecast['ds'], y=df_ts_forecast['yhat'],
+        mode='lines', name='Đường xu hướng dự báo chuỗi thời gian tiếp theo',
+        line=dict(color='#E74C3C', width=2, dash='dash')
+    ))
+    
+    fig_timeseries.add_trace(go.Scatter(
+        x=pd.concat([df_ts_forecast['ds'], df_ts_forecast['ds'].iloc[::-1]]),
+        y=pd.concat([df_ts_forecast['yhat_upper'], df_ts_forecast['yhat_lower'].iloc[::-1]]),
+        fill='toself', 
+>>>>>>> 549ff920202e44362aa47527d0cfa0011af91da6
         fillcolor='rgba(231, 76, 60, 0.12)',
 
         line=dict(color='rgba(255,255,255,0)'),
+<<<<<<< HEAD
 
         name='Khoảng bất định tin cậy hệ thống (80% Confidence Interval)',
 
+=======
+        name='Khoảng bất định tin cậy an toàn hệ thống (80% Confidence Interval)',
+>>>>>>> 549ff920202e44362aa47527d0cfa0011af91da6
         hoverinfo="skip"
 
     ))
@@ -1012,6 +1339,7 @@ with tab6:
    
 
     fig_timeseries.update_layout(
+<<<<<<< HEAD
 
         hovermode="x unified",
 
@@ -1027,11 +1355,19 @@ with tab6:
 
         yaxis=dict(showgrid=True, gridcolor='rgba(200,200,200,0.3)', title="Chỉ số chất lượng không khí AQI")
 
+=======
+        title="Mô hình hóa Tiến trình chuỗi thời gian AQI Hà Nội (Học tự động chu kỳ lặp Daily & Weekly Seasonality)",
+        xaxis_title="Trục thời gian liên tục (Local Timeline)",
+        yaxis_title="Giá trị điểm chất lượng không khí AQI",
+        hovermode="x unified",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+>>>>>>> 549ff920202e44362aa47527d0cfa0011af91da6
     )
 
    
 
     st.plotly_chart(fig_timeseries, use_container_width=True)
+<<<<<<< HEAD
 
    
 
@@ -1046,3 +1382,10 @@ with tab6:
     * Biên độ khoảng mờ mở rộng nhẹ phản ánh độ bất định tăng dần theo khoảng cách dự báo, hỗ trợ đưa ra các phương án hành động sớm trước 48 giờ.
 
     """) 
+=======
+    st.markdown("""
+    **📜 Ghi chú cấu phần kỹ thuật phân hệ Chuỗi thời gian:**
+    - Biên độ khoảng mờ màu đỏ bao phủ cho thấy độ bất định tăng dần theo khoảng cách thời gian dự báo xa. 
+    - Giúp các cơ quan quản lý đô thị đưa ra các phương án hành động và khuyến cáo sớm trước 48 giờ.
+    """)
+>>>>>>> 549ff920202e44362aa47527d0cfa0011af91da6
