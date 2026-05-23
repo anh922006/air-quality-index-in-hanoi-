@@ -10,17 +10,38 @@ Dựa vào data chỉ số chất lượng không khí từ 2022-2025 để xây
                    Tạ Minh Trường - B24DCTC113
 
 2. Cấu trúc thư mục (Project Structure)
-├── data_raw/             # 4 file CSV gốc (2022, 2023, 2024, 2025)
-├── clean/                
-│   ├── clean.ipynb       # Code gộp file, nội suy Missing values & xử lý Outliers
-│   └── hanoi_aqi_cleaned.csv # Dataset sạch để chạy Model
-├── manual_implementation/  # Triển khai thuật toán Không dùng thư viện
-│   └── Classification_manual.ipynb  
-├── library_framework/    # Triển khai bằng thư viện
-│   └── PCA.ipynb         
-├── .gitignore            # Bỏ qua các file rác và file data quá lớn
-├── README.md             # Tài liệu hướng dẫn dự án 
-└── requirements.txt      # Thư viện cần cài đặt
+Air-Quality-Index-in-Hanoi/
+├── data_raw/                     # Thư mục chứa 4 file CSV dữ liệu thô gốc (2022–2025)
+├── clean/                        
+│   ├── clean.ipynb               # Làm sạch dữ liệu
+│   ├── hanoi_aqi_cleaned.csv     # Tệp dữ liệu đầu ra đã làm sạch (Cleaned Dataset)
+│   └── sql.py                    # Mã nguồn thiết lập kết nối và nạp dữ liệu sạch vào MySQL
+├── library_framework/            # Code có dùng thư viện
+│   ├── __pycache__/          
+│   ├── charts/                   # Thư mục lưu trữ các hình ảnh biểu đồ 
+│   ├── library_framework/        # Thư mục con bổ trợ cấu trúc framework
+│   ├── app.py                    # File khởi chạy giao diện chính của ứng dụng Web Streamlit
+│   ├── minh_truong_tab.py        # File thành phần giao diện (Phân đoạn Streamlit do Minh Trường phụ trách)
+│   ├── EDA.ipynb                 # Notebook phân tích khám phá dữ liệu và vẽ biểu đồ xu hướng
+│   ├── PCA.ipynb                 # Notebook áp dụng đại số tuyến tính giảm chiều dữ liệu
+│   ├── Clustering.ipynb          # Notebook thuật toán Phân cụm không giám sát (K-Means) các trạng thái không khí
+│   ├── Classification.ipynb      # Notebook huấn luyện mô hình Phân loại đa lớp cấp độ ô nhiễm
+│   ├── Best_model.ipynb          # Notebook thực nghiệm song song, so sánh hiệu năng toán học 3 model để chọn Best Model dự đoán
+│   ├── best_model.pkl            # Tệp tĩnh đóng gói toàn bộ cấu trúc và trọng số toán học tối ưu của XGBoost Regressor
+│   ├── Time_Series_Forecast.ipynb # Notebook dự báo chuỗi thời gian đối chứng bằng Facebook Prophet
+│   ├── Forecasting.py            # Module Python phục vụ tính toán các kịch bản dự báo tương lai
+│   ├── Model Interpretation.ipynb # Notebook giải thích mô hình (SHAP/Feature Importance) phá vỡ hộp đen AI
+│   ├── Ethical_Bias_Report.ipynb # Notebook rà soát, đánh giá định kiến và đạo đức của thuật toán
+│   ├── Recommendation_System.py  # Hệ thống khuyến nghị theo nhóm người và ngữ cảnh
+│   ├── context_advice_rules.csv  # Bảng data hệ khuyến nghị theo ngữ cảnh 
+│   ├── recommendation_table.csv  # Bảng data hệ khuyến nghị theo nhóm người
+│   ├── xgboost_best_model.json   # Tệp JSON lưu trữ cấu trúc cây quyết định đặc trưng của XGBoost Classification
+│   └── xgboost_meta.json         # Tệp JSON lưu trữ siêu dữ liệu (metadata) cấu hình siêu tham số mô hình
+├── manual_implementation/        # Code không dùng thư viện
+│   └── Classification_manual.ipynb # Thử nghiệm tự lập trình thuật toán phân loại không dùng thư viện
+├── .gitignore                    # Tệp cấu hình bỏ qua các file rác hệ thống, file .pkl, và file dữ liệu nặng
+├── README.md                     # Tài liệu hướng dẫn cài đặt, vận hành dự án và nghiệm thu kết quả
+└── requirements.txt              # Danh sách toàn bộ các thư viện cần cài đặt 
 
 3. Ý nghĩa các cột
 - Tổng cộng: 24 cột
