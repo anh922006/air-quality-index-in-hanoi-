@@ -21,12 +21,7 @@ os.makedirs(CHART_DIR, exist_ok=True)
 # ── Load data từ MySQL ────────────────────────────────────
 @st.cache_data(ttl=3600)
 def load_data():
-    load_dotenv()
-    engine = create_engine(
-        f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-        f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
-    )
-    df = pd.read_sql("SELECT * FROM aqi_data", con=engine)
+    df = pd.read_csv("clean/hanoi_aqi_cleaned.csv")
     df.columns = df.columns.str.strip().str.lower()
     df['local_time'] = pd.to_datetime(df['local_time'])
     SEASON_MAP = {0: 'Đông', 1: 'Xuân', 2: 'Hạ', 3: 'Thu'}
