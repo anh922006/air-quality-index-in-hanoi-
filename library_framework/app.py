@@ -71,12 +71,7 @@ FEATURES = [
 
 @st.cache_data
 def load_timeseries_data():
-    load_dotenv()
-    engine = create_engine(
-        f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-        f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
-    )
-    df = pd.read_sql("SELECT * FROM aqi_data", con=engine)
+    df = pd.read_csv("clean/hanoi_aqi_cleaned.csv")
     df.columns = df.columns.str.strip().str.lower()
     df['local_time'] = pd.to_datetime(df['local_time'])
     df = df.sort_values('local_time').reset_index(drop=True)
