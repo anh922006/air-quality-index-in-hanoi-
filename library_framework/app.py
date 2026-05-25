@@ -19,17 +19,12 @@ import os
 # Định nghĩa hàm SÁT LỀ TRÁI, ngay đầu file
 @st.cache_data
 def load_data():
-    # Sử dụng đường dẫn tương đối từ vị trí file app.py
-    # Giả sử app.py ở trong 'library_framework/', file csv ở thư mục cha
     parent_dir = os.path.dirname(os.path.abspath(__file__))
     path_data = os.path.join(os.path.dirname(parent_dir), 'forecast_results_2025.csv')
     
     if not os.path.exists(path_data):
         return None, path_data
     return pd.read_csv(path_data), path_data
-
-# KHAI BÁO CÁC TAB (Phải đủ 6 tab nếu bạn muốn dùng đến tab 6)
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["EDA", "Mô Hình", "Hiệu Năng", "PCA", "Bias", "Động Lực Học"])
 
  
 # Import tab EDA + Classification của Minh Trường
