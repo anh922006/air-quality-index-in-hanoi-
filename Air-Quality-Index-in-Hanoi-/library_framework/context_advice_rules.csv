@@ -1,0 +1,25 @@
+﻿Loại ngữ cảnh,Điều kiện ngữ cảnh,Ngưỡng AQI,Lời khuyên hành động (Context-Aware Advice)
+Khung giờ,rush_morning (Cao điểm sáng),> 100,"🚗 Tránh các tuyến Nguyễn Trãi, Tây Sơn, Giải Phóng — PM2.5 từ khói xe rất cao lúc này. Nên dùng metro/xe buýt thay xe máy để giảm tiếp xúc trực tiếp."
+Khung giờ,rush_morning (Cao điểm sáng),> 50,🚗 Đeo khẩu trang khi đi đường dù AQI ở mức trung bình.
+Khung giờ,rush_evening (Cao điểm chiều),> 100,"🌆 AQI thường tệ nhất trong ngày lúc này — hạn chế tập thể dục ngoài trời. Tránh đường Trần Duy Hưng, Láng Hạ, Đê La Thành."
+Khung giờ,rush_evening (Cao điểm chiều),> 50,"🌆 Hạn chế ở ngoài đường lâu, di chuyển về nhà sớm."
+Khung giờ,morning (Buổi sáng),<= 100,🌅 Thời điểm tốt để tập thể dục ngoài trời nếu AQI dưới 100.
+Khung giờ,morning (Buổi sáng),> 100,🌅 AQI cao: không nên chạy bộ hoặc tập ngoài trời.
+Khung giờ,afternoon (Buổi chiều),<= 50,☀️ AQI tốt: có thể hoạt động ngoài trời bình thường.
+Khung giờ,afternoon (Buổi chiều),<= 150,"☀️ UV Index thường cao nhất lúc 12–15h, kết hợp cả ô nhiễm — nên hạn chế ra ngoài."
+Khung giờ,evening (Buổi tối),> 150,"🌙 Buổi tối AQI cao: đóng cửa sổ, không mở cửa thông gió tự nhiên ban đêm."
+Khung giờ,evening (Buổi tối),<= 100,🌙 Buổi tối AQI ổn: có thể mở cửa sổ thông gió nhẹ.
+Khung giờ,night (Đêm khuya),> 100,"🌙 Bật máy lọc không khí chế độ im lặng khi ngủ, đóng kín cửa sổ. Người có bệnh hô hấp nên đặt máy gần đầu giường."
+Khung giờ,night (Đêm khuya),Mức tốt,"🌙 Yên tâm ngủ, có thể mở hé cửa sổ thông gió nhẹ."
+Mùa khí hậu,Đông,> 100,"❄️ Nghịch nhiệt khiến bụi mịn không thoát được lên cao — AQI thường xấu nhất năm, đặc biệt sáng sớm."
+Mùa khí hậu,Đông,> 150,"❄️ AQI rất cao: hạn chế mở cửa sổ cả ngày, dùng máy lọc liên tục."
+Mùa khí hậu,Hạ,<= 100,"☀️ Thường AQI tốt hơn nhờ mưa rửa bụi, nhưng O3 và UV Index cao — tránh ra ngoài 11h–15h."
+Mùa khí hậu,Hạ,> 100,☀️ AQI cao bất thường: có thể do đợt nắng hạn kéo dài hoặc cháy rừng.
+Mùa khí hậu,Xuân,Mọi dải,"🌸 Độ ẩm cao, sương mù nhiều — bụi mịn dễ bị giữ lại trong không khí ẩm."
+Mùa khí hậu,Thu,> 100,🍂 Gió mùa Đông Bắc bắt đầu — ô nhiễm có xu hướng tăng dần cuối mùa Thu.
+Cấp độ AQI,Good (0-50),-,"🍃 Không khí trong lành: tăng cường thông gió, mở cửa sổ thoải mái."
+Cấp độ AQI,Moderate (51-100),-,🌤️ Có thể mở cửa sổ nhưng hạn chế nếu nhà gần đường lớn.
+Cấp độ AQI,Unhealthy for sensitive (101-150),-,"🏠 Nên đóng bớt cửa sổ, dùng máy lọc không khí nếu có."
+Cấp độ AQI,Unhealthy (151-200),-,"🚫 Đóng chặt cửa sổ, bật máy lọc không khí liên tục."
+Cấp độ AQI,Very Unhealthy (201-300),-,"🚨 Đóng kín toàn bộ cửa sổ, tránh mọi khe hở thông gió."
+Cấp độ AQI,Hazardous (301+),-,"🚨 Cực kỳ nguy hiểm — đóng kín nhà cửa, lọc khí tối đa, hạn chế ra ngoài tuyệt đối."

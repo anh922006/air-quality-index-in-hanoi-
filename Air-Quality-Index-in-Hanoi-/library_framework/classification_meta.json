@@ -1,0 +1,36 @@
+{
+  "best_model": "Random Forest",
+  "label_encoder_classes": [
+    "Good",
+    "Hazardous",
+    "Moderate",
+    "Unhealthy",
+    "Unhealthy for sensitive groups",
+    "Very Unhealthy"
+  ],
+  "features": [
+    "co",
+    "no2",
+    "o3",
+    "pm10",
+    "pm25",
+    "so2",
+    "clouds",
+    "precipitation",
+    "pressure",
+    "relative_humidity",
+    "temperature",
+    "uv_index",
+    "wind_speed",
+    "hour",
+    "month",
+    "season",
+    "is_weekend",
+    "is_rush_hour",
+    "day_of_week"
+  ],
+  "f1_macro_rf": 0.8224044784895163,
+  "f1_macro_xgb": 0.8165573063945123,
+  "roc_auc_rf": 0.9993082818179749,
+  "roc_auc_xgb": 0.999002140559921
+}
