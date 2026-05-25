@@ -400,14 +400,28 @@ with tab2:
             c3.error(f"🫁 Bệnh hô hấp\n\n{filtered_row['Bệnh hô hấp'].values[0]}")
             c4.success(f"🏃 Người khỏe mạnh\n\n{filtered_row['Khỏe mạnh'].values[0]}")
 
+        def get_time_context_streamlit(hour, is_rush_hour, is_weekend):
+            if is_rush_hour and not is_weekend:
+                return 'rush_morning' if 5 <= hour <= 10 else 'rush_evening'
+            elif 5 <= hour <= 11:
+                return 'morning'
+            elif 12 <= hour <= 17:
+                return 'afternoon'
+            elif 18 <= hour <= 22:
+                return 'evening'
+            else:
+                return 'night'
+
+        time_ctx_actual = get_time_context_streamlit(
+            selected_hour,
+            int(input_features['is_rush_hour']),
+            int(input_features['is_weekend'])
+        )
+
         ctx_tips = get_context_advice_from_csv(
             pred_aqi,
-            'rush_morning' if (
-                input_features['is_rush_hour']
-                and
-                not input_features['is_weekend']
-            ) else 'morning',
-            {0:'Đông',1:'Xuân',2:'Hè',3:'Thu'}[int(input_features['season'])],
+            time_ctx_actual,
+            {0:'Đông', 1:'Xuân', 2:'Hè', 3:'Thu'}[int(input_features['season'])],
             level_label
         )
 
@@ -424,7 +438,6 @@ with tab2:
     SEASON_MAP_DEMO = {0:'Đông',1:'Xuân',2:'Hạ',3:'Thu'}
     WEEKDAY_MAP = {0:'Thứ Hai',1:'Thứ Ba',2:'Thứ Tư',3:'Thứ Năm',4:'Thứ Sáu',5:'Thứ Bảy',6:'Chủ Nhật'}
 
-    # 🌟 BỌC ĐIỀU KIỆN: Chỉ chạy sinh các Case nếu đã nạp được DataFrame dữ liệu
     if not df.empty:
         test_demo = df[df['year'] == 2025].copy()
         train_demo = df[df['year'] < 2025].copy()
@@ -446,7 +459,7 @@ with tab2:
 
                 row = season_subset.iloc[idx]
                 matched = df[df['local_time'] == row['local_time']]
-# Thay toán tử & bằng toán tử and chuẩn của Python
+
                 if not matched.empty and not pd.isna(matched['aqi_lag_1'].values[0]):
                     inp = matched[FEATURES].iloc[0].to_dict()
                     source = "Dữ liệu chuỗi trễ thực tế"
@@ -481,21 +494,18 @@ with tab2:
                     'season': season_code
                 })
 
-                # 🌟 SỬA CHÍNH XÁC DÒNG 473 Ở ĐÂY: Kiểm tra mô hình trước khi gọi hàm predict
                 if model_regression is not None:
                     try:
                         pred = float(model_regression.predict(pd.DataFrame([inp])[FEATURES])[0])
                     except Exception:
                         pred = float(inp.get('pm25_lag_1', 40.0) * 1.2 + 15.0)
                 else:
-                    # Công thức hồi quy giả lập dựa trên bụi mịn PM2.5 khi không tìm thấy file pkl
                     pred = float(inp.get('pm25_lag_1', 40.0) * 1.2 + 15.0)
 
                 pred = round(pred, 1)
 
                 level_l, emoji_l, color_l, text_c = get_aqi_level_details(pred)
 
-                # Kiểm tra an toàn bảng khuyến nghị để tránh lỗi index
                 rec_data = None
                 if not df_rec.empty and level_l in df_rec['Danh mục'].values:
                     rec_data = df_rec[df_rec['Danh mục'] == level_l].iloc[0]
@@ -580,11 +590,9 @@ with tab2:
             
             case_hour = int(case['time'].split(' ')[1].replace('h', ''))
             
-            # Khôi phục các biến chỉ thị bối cảnh thời gian thực tế của Case
             is_rush = 1 if case_hour in [6, 7, 8, 9, 17, 18, 19, 20] else 0
             is_wkend = 1 if case['weekday'] in ['Thứ Bảy', 'Chủ Nhật'] else 0
 
-            # Đồng bộ thuật toán phân chia 6 khung giờ ngữ cảnh tương thích 100% với Backend
             if is_rush and not is_wkend:
                 time_ctx = 'rush_morning' if 5 <= case_hour <= 10 else 'rush_evening'
             elif 5 <= case_hour <= 11:
