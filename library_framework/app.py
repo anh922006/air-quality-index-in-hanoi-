@@ -910,148 +910,63 @@ with tab4:
 # =========================================================
 
 with tab5:
-
     st.header("🔍 Tính Minh Bạch Thuật Toán & Đánh Giá Sai Số Công Bằng")
 
-    # =====================================================
-    # KPI
-    # =====================================================
+    # --- KPI Section ---
     col1, col2, col3 = st.columns(3)
-
     col1.metric("Tổng điểm dị thường", "280", "Cao")
     col2.metric("RMSE Trung bình", "14.2", "Đạt chuẩn")
     col3.metric("Trạng thái Bias", "Có Bias", "⚠️")
 
     st.markdown("---")
 
-    # =====================================================
-    # GIẢI THÍCH
-    # =====================================================
+    # --- Giải thích Section ---
     interpret_col1, interpret_col2 = st.columns(2)
-
     with interpret_col1:
-
         st.subheader("📊 Diễn Giải Regression Bias")
-
-        st.info("""
-        - RMSE đo mức sai lệch giữa AQI thực tế và AQI dự báo.
-        - Sai số tăng mạnh vào mùa Đông do nghịch nhiệt và bụi mịn PM2.5.
-        - Điều này phản ánh hiện tượng Seasonal Bias trong dữ liệu môi trường.
-        """)
-
+        st.info("- RMSE đo mức sai lệch giữa AQI thực tế và dự báo.\n- Sai số tăng mạnh vào mùa Đông do nghịch nhiệt và PM2.5.\n- Hiện tượng Seasonal Bias phổ biến trong dữ liệu môi trường.")
     with interpret_col2:
-
         st.subheader("⚖️ Ethical Bias Analysis")
-
-        st.warning("""
-        - FNR phản ánh tỷ lệ bỏ lọt các ngày ô nhiễm nguy hiểm.
-        - FNR cao khiến hệ thống đánh giá mức nguy hiểm thấp hơn thực tế.
-        - Mùa Đông xuất hiện tỷ lệ bỏ lọt lớn nhất.
-        """)
+        st.warning("- FNR phản ánh tỷ lệ bỏ lọt các ngày ô nhiễm nguy hiểm.\n- FNR cao khiến hệ thống đánh giá mức nguy hiểm thấp hơn thực tế.\n- Mùa Đông thường xuất hiện tỷ lệ bỏ lọt lớn nhất.")
 
     st.divider()
-
     st.markdown("## 🎯 Hệ Thống Trực Quan Hóa")
 
-    # =====================================================
-    # XÁC ĐỊNH ĐƯỜNG DẪN CHUẨN
-    # =====================================================
+    # --- Xác định đường dẫn ---
+    # Đảm bảo đường dẫn này khớp với vị trí thực tế của thư mục 'charts' trên GitHub
     current_dir = os.path.dirname(os.path.abspath(__file__))
+    charts_dir = os.path.join(current_dir, "charts")
 
-    charts_dir = os.path.join(
-        current_dir,
-        "charts"
-    )
-
-    st.write("📁 Charts folder:", charts_dir)
-
-    # =====================================================
-    # KIỂM TRA FILE
-    # =====================================================
-    rmse_path = os.path.join(
-        charts_dir,
-        "regression_bias_analysis.png"
-    )
-
-    fnr_path = os.path.join(
-        charts_dir,
-        "fnr_season_plot.png"
-    )
-
-    overview_path = os.path.join(
-        charts_dir,
-        "prophet_bias_analysis.png"
-    )
-
-    # =====================================================
-    # HIỂN THỊ 2 BIỂU ĐỒ
-    # =====================================================
+    # --- Hiển thị 2 biểu đồ chính ---
     col_chart1, col_chart2 = st.columns(2)
+    
+    # Danh sách ảnh để hiển thị tự động
+    charts_config = [
+        {"col": col_chart1, "title": "📉 Regression Bias (RMSE)", "file": "regression_bias_analysis.png"},
+        {"col": col_chart2, "title": "🚨 Ethical Bias (FNR)", "file": "fnr_season_plot.png"}
+    ]
 
-    with col_chart1:
-
-        st.markdown("### 📉 Regression Bias (RMSE)")
-
-        st.write("DEBUG:", rmse_path)
-
-        if os.path.exists(rmse_path):
-
-            st.image(
-                rmse_path,
-                caption="Regression Bias theo mùa",
-                use_container_width=True
-            )
-
-        else:
-
-            st.error(f"❌ Không tìm thấy ảnh:\n{rmse_path}")
-
-    with col_chart2:
-
-        st.markdown("### 🚨 Ethical Bias (FNR)")
-
-        st.write("DEBUG:", fnr_path)
-
-        if os.path.exists(fnr_path):
-
-            st.image(
-                fnr_path,
-                caption="Ethical Bias theo mùa",
-                use_container_width=True
-            )
-
-        else:
-
-            st.error(f"❌ Không tìm thấy ảnh:\n{fnr_path}")
+    for cfg in charts_config:
+        with cfg["col"]:
+            st.markdown(f"### {cfg['title']}")
+            path = os.path.join(charts_dir, cfg["file"])
+            if os.path.exists(path):
+                st.image(path, use_container_width=True)
+            else:
+                st.error(f"Không tìm thấy file: {cfg['file']}")
 
     st.divider()
 
-    # =====================================================
-    # ẢNH TỔNG QUAN
-    # =====================================================
+    # --- Ảnh tổng quan ---
     st.markdown("## 🖼️ Tổng quan hệ thống")
-
-    st.write("DEBUG:", overview_path)
-
+    overview_path = os.path.join(charts_dir, "prophet_bias_analysis.png")
     if os.path.exists(overview_path):
-
-        st.image(
-            overview_path,
-            caption="Phân tích Bias tổng hợp từ Prophet",
-            use_container_width=True
-        )
-
+        st.image(overview_path, caption="Phân tích Bias tổng hợp từ Prophet", use_container_width=True)
     else:
+        st.error("Không tìm thấy ảnh tổng quan (prophet_bias_analysis.png)")
 
-        st.error(f"❌ Không tìm thấy ảnh:\n{overview_path}")
-
-    st.divider()
-
-    # =====================================================
-    # BẢNG THỐNG KÊ
-    # =====================================================
+    # --- Bảng thống kê ---
     with st.expander("📋 Xem chi tiết bảng sai số mùa"):
-
         st.table(pd.DataFrame({
             'Mùa': ['Đông', 'Xuân', 'Hạ'],
             'RMSE': [23.1, 22.0, 32.8],
