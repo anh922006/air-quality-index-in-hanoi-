@@ -1,0 +1,7 @@
+﻿Mức AQI,Danh mục,Trẻ em,Người già,Bệnh hô hấp,Khỏe mạnh
+0–50,Good,✅ Hoạt động bình thường,✅ Hoạt động bình thường,✅ Hoạt động bình thường,✅ Hoạt động bình thường
+51–100,Moderate,✅ Hoạt động bình thường,✅ Hoạt động bình thường,🌤️ Theo dõi sức khỏe,✅ Hoạt động bình thường
+101–150,Unhealthy for sensitive groups,🔶 Hạn chế hoạt động ngoài trời lâu,🔶 Đeo khẩu trang khi ra ngoài,🔴 Hạn chế ra ngoài tuyệt đối,🌤️ Đeo khẩu trang khi đi đường
+151–200,Unhealthy,🔴 Không nên ra ngoài,🔴 Ở trong nhà,🚨 Ở trong nhà hoàn toàn,🔶 Đeo khẩu trang N95 khi ra ngoài
+201–300,Very Unhealthy,🚨 Ở trong nhà hoàn toàn,🚨 Ở trong nhà hoàn toàn,🚨 Chuẩn bị thuốc cấp cứu,🔴 Tránh mọi hoạt động ngoài trời
+301–500+,Hazardous,🚫 Nghiêm cấm ra ngoài,🚫 Liên hệ y tế nếu mệt mỏi,🚫 Cần hỗ trợ y tế khẩn cấp,"🚨 Ở trong nhà, đóng kín cửa sổ"
